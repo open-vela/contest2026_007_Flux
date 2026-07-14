@@ -1,0 +1,18 @@
+{
+  "ts": "2026-06-24T03:07:55.011Z",
+  "kind": "no_transcript_path",
+  "tool": "claude-code",
+  "team_id": "contest2026_007_Flux",
+  "version": "1.2.0",
+  "context": {
+    "tool": "claude-code",
+    "session_id": "test",
+    "stdin": {
+      "session_id": "test",
+      "cwd": "$(pwd)",
+      "transcrpit_path:": "dummy",
+      "hook_event_name": "stop"
+    }
+  },
+  "message": "stdin payload missing transcript_path"
+}
