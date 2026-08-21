@@ -1,0 +1,10 @@
+<script>
+export default {
+  onCreate() {
+    console.info("[InfoPlat] App Created - Session Start")
+  },
+  onDestroy() {
+    console.info("[InfoPlat] App Destroyed")
+  }
+}
+</script>

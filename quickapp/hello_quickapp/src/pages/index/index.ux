@@ -1,15 +1,474 @@
 <template>
-  <div class="container">
-    <text>Hello QuickApp - contest 2026 team 000</text>
+  <div class="page {{ isDark ? 'page-dark' : 'page-light' }}">
+    <div class="top-nav {{ isDark ? 'top-nav-dark' : 'top-nav-light' }}">
+      <div class="brand-block">
+        <text class="brand-en">INFOPLAT</text>
+        <text class="brand-title {{ isDark ? 'text-dark' : 'text-light' }}">信息台</text>
+      </div>
+      <div class="nav-buttons">
+        <input class="nav-button nav-button-active" type="button" value="首页" />
+        <input class="nav-button {{ isDark ? 'btn-dark' : 'btn-light' }}" type="button" value="新闻" onclick="goNews" />
+        <input class="nav-button {{ isDark ? 'btn-dark' : 'btn-light' }}" type="button" value="天气" onclick="goWeather" />
+        <input class="nav-button {{ isDark ? 'btn-dark' : 'btn-light' }}" type="button" value="快递" onclick="goExpress" />
+        <input class="theme-button {{ isDark ? 'theme-btn-dark' : 'theme-btn-light' }}" type="button" value="{{ themeButtonText }}" onclick="toggleTheme" />
+      </div>
+    </div>
+
+    <div class="content-area {{ isDark ? 'main-panel-dark' : 'main-panel-light' }}">
+      <scroll class="main-scroll" scroll-y="true" bounces="true">
+        <!-- 大号时钟 -->
+        <div class="hero-clock">
+          <text class="hero-time {{ isDark ? 'text-dark' : 'text-light' }}">{{ currentTime }}</text>
+          <text class="hero-date {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">{{ currentDate }}</text>
+        </div>
+
+        <!-- 天气摘要 -->
+        <div class="weather-bar {{ isDark ? 'card-dark' : 'card-light' }}">
+          <text class="weather-text {{ isDark ? 'text-dark' : 'text-light' }}">{{ weatherSummary }}</text>
+        </div>
+
+        <!-- 今日头条 -->
+        <div class="section-card {{ isDark ? 'card-dark' : 'card-light' }}" onclick="showNewsDetail">
+          <text class="section-label {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">今日头条</text>
+          <text class="news-title {{ isDark ? 'text-dark' : 'text-light' }}">{{ newsTitle }}</text>
+          <text class="news-desc {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">{{ newsDesc }}</text>
+          <text class="news-meta {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">{{ newsSource }}</text>
+        </div>
+
+        <!-- 历史上的今天 -->
+        <div class="section-card {{ isDark ? 'card-dark' : 'card-light' }}">
+          <text class="section-label {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">历史上的今天</text>
+          <div for="{{ historyList }}">
+            <div class="history-item">
+              <text class="history-year {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">{{ $item.yearLabel }}</text>
+              <div class="history-content">
+                <text class="history-title {{ isDark ? 'text-dark' : 'text-light' }}">{{ $item.title }}</text>
+                <text class="history-desc {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">{{ $item.desc }}</text>
+              </div>
+            </div>
+          </div>
+        </div>
+      </scroll>
+    </div>
   </div>
 </template>
 
-<style>
-.container { flex-direction: column; justify-content: center; align-items: center; }
-</style>
-
 <script>
+import router from "@system.router"
+import storage from "@system.storage"
+import { getWeather, getLatestNews, getTodayInHistory } from "../../common/services"
+import { getThemeSync, setTheme } from "../../common/theme"
+
+// 测试录音模块是否存在
+var _record = null
+try {
+  _record = require("@system.record")
+  console.log("[TEST] system.record 加载成功: " + JSON.stringify(Object.keys(_record)))
+} catch (e) {
+  console.log("[TEST] system.record 不存在: " + e.message)
+}
+
+function pad(value) {
+  return value < 10 ? "0" + value : "" + value
+}
+
+var CITY_STORAGE_KEY = "infoWeatherCity"
+
 export default {
-  data: { msg: 'hello' }
+  private: {
+    isDark: false,
+    themeButtonText: "深色模式",
+    modeLabel: "浅色",
+    currentTime: "--:--",
+    currentDate: "",
+    weatherSummary: "获取天气中...",
+    newsTitle: "正在加载新闻...",
+    newsSource: "",
+    newsUrl: "",
+    newsDesc: "",
+    historyList: []
+  },
+
+  onInit() {
+    this.isDark = getThemeSync()
+    this.themeButtonText = this.isDark ? "浅色模式" : "深色模式"
+    this.modeLabel = this.isDark ? "深色" : "浅色"
+    this.updateClock()
+    this.updateDate()
+  },
+
+  onShow() {
+    this.updateClock()
+    this.updateDate()
+    // 串行调用，避免并发 fetch 导致框架崩溃
+    this.loadWeather()
+  },
+
+  onDestroy() {
+  },
+
+  updateClock() {
+    var now = new Date()
+    this.currentTime = pad(now.getHours()) + ":" + pad(now.getMinutes())
+  },
+
+  updateDate() {
+    var now = new Date()
+    var weekDays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]
+    this.currentDate = now.getFullYear() + "年" + (now.getMonth() + 1) + "月" + now.getDate() + "日 " + weekDays[now.getDay()]
+  },
+
+  toggleTheme() {
+    this.isDark = !this.isDark
+    this.themeButtonText = this.isDark ? "浅色模式" : "深色模式"
+    this.modeLabel = this.isDark ? "深色" : "浅色"
+    setTheme(this.isDark)
+  },
+
+  goNews() {
+    router.push({ uri: "pages/news" })
+  },
+
+  goWeather() {
+    router.push({ uri: "pages/weather" })
+  },
+
+  goExpress() {
+    router.push({ uri: "pages/express" })
+  },
+
+  showNewsDetail() {
+    if (!this.newsTitle || this.newsTitle === "正在加载新闻...") return
+    router.push({
+      uri: "pages/detail",
+      params: {
+        title: this.newsTitle,
+        description: this.newsDesc,
+        source: this.newsSource,
+        url: this.newsUrl,
+        isDark: this.isDark
+      }
+    })
+  },
+
+  loadWeather() {
+    var self = this
+    storage.get({
+      key: CITY_STORAGE_KEY,
+      success: function (data) {
+        var city = data || "北京"
+        self.fetchWeather(city)
+      },
+      fail: function () {
+        self.fetchWeather("北京")
+      }
+    })
+  },
+
+  fetchWeather(city) {
+    var self = this
+    self.weatherSummary = city + " 获取天气中..."
+    getWeather(city).then(function (info) {
+      self.weatherSummary = info.title + " " + info.message + " " + info.subtitle
+      // 天气加载完后，加载新闻
+      self.loadNews()
+    }).catch(function () {
+      self.weatherSummary = city + " 天气获取失败"
+      // 失败也要继续加载新闻
+      self.loadNews()
+    })
+  },
+
+  loadNews() {
+    var self = this
+    getLatestNews({ categories: ["politics"], pageSize: 20 }).then(function (list) {
+      if (list && list.length) {
+        self.newsTitle = list[0].title
+        self.newsSource = list[0].source + " · " + list[0].published
+        self.newsUrl = list[0].url
+        self.newsDesc = list[0].description
+      }
+      // 新闻加载完后，加载历史
+      self.loadHistory()
+    }).catch(function () {
+      self.newsTitle = "新闻获取失败"
+      // 失败也要继续加载历史
+      self.loadHistory()
+    })
+  },
+
+  formatHistoryYear(year) {
+    var y = parseInt(year, 10)
+    if (isNaN(y)) return year + "年"
+    if (y < 0) return "公元前" + Math.abs(y) + "年"
+    return y + "年"
+  },
+
+  loadHistory() {
+    var self = this
+    getTodayInHistory().then(function (list) {
+      if (list && list.length) {
+        var formatted = list.map(function (item) {
+          return { title: item.title, year: item.year, yearLabel: self.formatHistoryYear(item.year), desc: item.desc, link: item.link }
+        })
+        self.historyList = formatted
+      }
+    }).catch(function () {
+      // 历史加载失败，静默处理
+    })
+  }
 }
 </script>
+
+<style>
+text {
+  color: #172026;
+  font-size: 14px;
+  line-height: 18px;
+}
+
+/* ========== 页面框架 ========== */
+.page {
+  width: 320px;
+  height: 240px;
+  flex-direction: column;
+}
+
+.page-light {
+  background-color: #f2f5f6;
+}
+
+.page-dark {
+  background-color: #000000;
+}
+
+/* ========== 顶部导航栏 ========== */
+.top-nav {
+  width: 320px;
+  height: 45px;
+  padding: 5px 10px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.top-nav-light {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.top-nav-dark {
+  background-color: #171717;
+  border-bottom: 1px solid #333333;
+}
+
+.brand-block {
+  flex-direction: column;
+  justify-content: center;
+}
+
+.brand-en {
+  font-size: 8px;
+  color: #0074ff;
+  font-weight: bold;
+}
+
+.brand-title {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.nav-buttons {
+  flex-direction: row;
+  align-items: center;
+}
+
+.nav-button {
+  width: 48px;
+  height: 28px;
+  margin-left: 5px;
+  border-radius: 4px;
+  background-color: #e8eef0;
+  color: #172026;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.nav-button-active {
+  background-color: #0074ff;
+  color: #ffffff;
+}
+
+.theme-button {
+  width: 48px;
+  height: 28px;
+  margin-left: 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.theme-btn-light {
+  background-color: #e6f1ff;
+  color: #0057bf;
+}
+
+.theme-btn-dark {
+  background-color: #1a2c40;
+  color: #6fb2ff;
+}
+
+/* ========== 主内容区 ========== */
+.content-area {
+  width: 320px;
+  height: 195px;
+  padding: 8px 15px;
+  flex-direction: column;
+}
+
+.main-scroll {
+  height: 179px;
+  flex-direction: column;
+}
+
+.main-panel-light {
+  background: linear-gradient(180deg, #e8f4fd 0%, #f2f5f6 100%);
+}
+
+.main-panel-dark {
+  background: linear-gradient(180deg, #0a1628 0%, #202020 100%);
+}
+
+/* ========== 时钟区 ========== */
+.hero-clock {
+  height: 65px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.hero-time {
+  font-size: 32px;
+  font-weight: bold;
+  line-height: 40px;
+}
+
+.hero-date {
+  margin-top: 3px;
+  font-size: 14px;
+  line-height: 18px;
+}
+
+/* ========== 天气摘要 ========== */
+.weather-bar {
+  height: 30px;
+  margin-top: 8px;
+  padding: 0 12px;
+  border-radius: 5px;
+  flex-direction: row;
+  align-items: center;
+}
+
+.weather-text {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+/* ========== 通用卡片 ========== */
+.section-card {
+  margin-top: 8px;
+  padding: 12px 12px;
+  border-radius: 5px;
+  flex-direction: column;
+}
+
+.section-label {
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.card-light {
+  background-color: #ffffff;
+}
+
+.card-dark {
+  background-color: #171717;
+}
+
+/* ========== 今日新闻 ========== */
+.news-title {
+  font-size: 16px;
+  font-weight: bold;
+  line-height: 20px;
+}
+
+.news-desc {
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.news-meta {
+  margin-top: 5px;
+  font-size: 11px;
+}
+
+/* ========== 历史上的今天 ========== */
+.history-item {
+  margin-bottom: 6px;
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.history-year {
+  width: 65px;
+  font-size: 11px;
+  font-weight: bold;
+  margin-top: 2px;
+}
+
+.history-content {
+  width: 225px;
+  flex-direction: column;
+}
+
+.history-title {
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 18px;
+}
+
+.history-desc {
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+/* ========== 文字颜色 ========== */
+.text-light {
+  color: #172026;
+}
+
+.text-light-sub {
+  color: #627279;
+}
+
+.text-dark {
+  color: #edf4f4;
+}
+
+.text-dark-sub {
+  color: #aebdc2;
+}
+
+.btn-light {
+  background-color: #e8eef0;
+  color: #172026;
+}
+
+.btn-dark {
+  background-color: #262626;
+  color: #edf4f4;
+}
+</style>

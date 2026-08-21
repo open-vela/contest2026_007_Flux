@@ -1,0 +1,831 @@
+<template>
+  <div class="page {{ isDark ? 'page-dark' : 'page-light' }}">
+    <div class="top-nav {{ isDark ? 'top-nav-dark' : 'top-nav-light' }}">
+      <div class="brand-block">
+        <text class="brand-en">INFOPLAT</text>
+        <text class="brand-title {{ isDark ? 'text-dark' : 'text-light' }}">信息台</text>
+      </div>
+      <div class="nav-buttons">
+        <input class="nav-button {{ isDark ? 'btn-dark' : 'btn-light' }}" type="button" value="首页" onclick="goHome" />
+        <input class="nav-button {{ isDark ? 'btn-dark' : 'btn-light' }}" type="button" value="新闻" onclick="goNews" />
+        <input class="nav-button {{ isDark ? 'btn-dark' : 'btn-light' }}" type="button" value="天气" onclick="goWeather" />
+        <input class="nav-button nav-button-active" type="button" value="快递" />
+        <input class="theme-button {{ isDark ? 'theme-btn-dark' : 'theme-btn-light' }}" type="button" value="{{ themeButtonText }}" onclick="toggleTheme" />
+      </div>
+    </div>
+
+    <div class="content-area {{ isDark ? 'main-panel-dark' : 'main-panel-light' }}">
+      <div class="express-panel {{ isDark ? 'card-dark' : 'card-light' }}">
+        <div class="express-input-row">
+          <div class="express-input {{ isDark ? 'input-dark' : 'input-light' }}" onclick="toggleKeyboard">
+            <text class="{{ trackingNo ? 'express-input-text' : 'express-input-placeholder' }}">{{ trackingNo || '请输入快递运单号' }}</text>
+          </div>
+          <div class="express-phone-input {{ isDark ? 'input-dark' : 'input-light' }}" if="{{ showPhoneInput }}" onclick="togglePhoneKeyboard">
+            <text class="{{ phone ? 'express-input-text' : 'express-input-placeholder' }}">{{ phone || '手机号后4位' }}</text>
+          </div>
+          <input class="express-query-btn" type="button" value="查询" onclick="queryExpress" />
+        </div>
+        <div class="express-loading" if="{{ expressLoading }}">
+          <text class="state-text {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">{{ expressStateText }}</text>
+        </div>
+        <div class="state-box" if="{{ hasError }}">
+          <text class="state-title error-title">加载失败</text>
+          <text class="state-text {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">{{ errorText }}</text>
+        </div>
+        <scroll class="express-scroll" scroll-y="true" bounces="true" if="{{ !expressLoading &amp;&amp; !showKeyboard }}">
+          <div class="express-info-row">
+            <text class="express-tracking {{ isDark ? 'text-dark' : 'text-light' }}">{{ expressInfo.title }}</text>
+            <text class="express-sep {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">|</text>
+            <text class="express-cp {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">{{ expressInfo.subtitle }}</text>
+            <text class="express-sep {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">|</text>
+            <text class="express-status">{{ expressInfo.status }}</text>
+          </div>
+          <div class="timeline">
+            <div class="timeline-item" for="{{ expressInfo.details }}">
+              <div class="timeline-left">
+                <div class="timeline-dot"></div>
+                <div class="timeline-line"></div>
+              </div>
+              <div class="timeline-right">
+                <text class="timeline-time {{ $item.isLatest ? 'timeline-time-latest' : (isDark ? 'text-dark-sub' : 'text-light-sub') }}">{{ $item.time }}</text>
+                <text class="timeline-text {{ $item.isLatest ? 'timeline-text-latest' : (isDark ? 'text-dark' : 'text-light') }}">{{ $item.text }}</text>
+              </div>
+            </div>
+          </div>
+        </scroll>
+        <div class="saved-section" if="{{ !expressLoading &amp;&amp; !showKeyboard }}">
+          <text class="saved-title {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">保存的运单</text>
+          <div class="saved-list">
+            <div class="saved-item {{ isDark ? 'saved-item-dark' : '' }}" for="{{ savedList }}">
+              <text class="saved-text {{ isDark ? 'text-dark' : 'text-light' }}" onclick="loadSaved($item)">{{ $item }}</text>
+              <text class="saved-del" onclick="removeSaved($index)">×</text>
+            </div>
+          </div>
+        </div>
+        <div class="keyboard {{ isDark ? 'keyboard-dark' : '' }}" if="{{ showKeyboard }}">
+          <!-- 数字键盘（3行4列） -->
+          <div class="kb-container" if="{{ isNumberKeyboard }}">
+            <div class="kb-row">
+              <input class="kb-key" type="button" value="1" onclick="onKeyTap('1')" />
+              <input class="kb-key" type="button" value="2" onclick="onKeyTap('2')" />
+              <input class="kb-key" type="button" value="3" onclick="onKeyTap('3')" />
+              <input class="kb-key" type="button" value="4" onclick="onKeyTap('4')" />
+            </div>
+            <div class="kb-row">
+              <input class="kb-key" type="button" value="5" onclick="onKeyTap('5')" />
+              <input class="kb-key" type="button" value="6" onclick="onKeyTap('6')" />
+              <input class="kb-key" type="button" value="7" onclick="onKeyTap('7')" />
+              <input class="kb-key" type="button" value="8" onclick="onKeyTap('8')" />
+            </div>
+            <div class="kb-row">
+              <input class="kb-key" type="button" value="9" onclick="onKeyTap('9')" />
+              <input class="kb-key" type="button" value="0" onclick="onKeyTap('0')" />
+              <input class="kb-key-del" type="button" value="退格" onclick="onKeyTap('DEL')" />
+              <input class="kb-key-switch" type="button" value="ABC" onclick="switchKeyboard" />
+            </div>
+          </div>
+          <!-- 26键字母键盘 -->
+          <div class="kb-container" if="{{ !isNumberKeyboard }}">
+            <div class="kb-row">
+              <input class="kb-key-sm" type="button" value="Q" onclick="onKeyTap('Q')" />
+              <input class="kb-key-sm" type="button" value="W" onclick="onKeyTap('W')" />
+              <input class="kb-key-sm" type="button" value="E" onclick="onKeyTap('E')" />
+              <input class="kb-key-sm" type="button" value="R" onclick="onKeyTap('R')" />
+              <input class="kb-key-sm" type="button" value="T" onclick="onKeyTap('T')" />
+              <input class="kb-key-sm" type="button" value="Y" onclick="onKeyTap('Y')" />
+              <input class="kb-key-sm" type="button" value="U" onclick="onKeyTap('U')" />
+              <input class="kb-key-sm" type="button" value="I" onclick="onKeyTap('I')" />
+              <input class="kb-key-sm" type="button" value="O" onclick="onKeyTap('O')" />
+              <input class="kb-key-sm" type="button" value="P" onclick="onKeyTap('P')" />
+            </div>
+            <div class="kb-row">
+              <input class="kb-key-sm" type="button" value="A" onclick="onKeyTap('A')" />
+              <input class="kb-key-sm" type="button" value="S" onclick="onKeyTap('S')" />
+              <input class="kb-key-sm" type="button" value="D" onclick="onKeyTap('D')" />
+              <input class="kb-key-sm" type="button" value="F" onclick="onKeyTap('F')" />
+              <input class="kb-key-sm" type="button" value="G" onclick="onKeyTap('G')" />
+              <input class="kb-key-sm" type="button" value="H" onclick="onKeyTap('H')" />
+              <input class="kb-key-sm" type="button" value="J" onclick="onKeyTap('J')" />
+              <input class="kb-key-sm" type="button" value="K" onclick="onKeyTap('K')" />
+              <input class="kb-key-sm" type="button" value="L" onclick="onKeyTap('L')" />
+            </div>
+            <div class="kb-row">
+              <input class="kb-key-sm" type="button" value="Z" onclick="onKeyTap('Z')" />
+              <input class="kb-key-sm" type="button" value="X" onclick="onKeyTap('X')" />
+              <input class="kb-key-sm" type="button" value="C" onclick="onKeyTap('C')" />
+              <input class="kb-key-sm" type="button" value="V" onclick="onKeyTap('V')" />
+              <input class="kb-key-sm" type="button" value="B" onclick="onKeyTap('B')" />
+              <input class="kb-key-sm" type="button" value="N" onclick="onKeyTap('N')" />
+              <input class="kb-key-sm" type="button" value="M" onclick="onKeyTap('M')" />
+              <input class="kb-key-sm" type="button" value="-" onclick="onKeyTap('-')" />
+            </div>
+            <div class="kb-row">
+              <input class="kb-key-switch" type="button" value="123" onclick="switchKeyboard" />
+              <input class="kb-key-wide" type="button" value="退格" onclick="onKeyTap('DEL')" />
+              <input class="kb-key-wide" type="button" value="清空" onclick="onKeyTap('CLR')" />
+              <input class="kb-key-ok" type="button" value="确定" onclick="onKeyTap('OK')" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from "@system.router"
+import { getExpress } from "../../common/services"
+import { getThemeSync, setTheme } from "../../common/theme"
+
+function pad(value) {
+  return value < 10 ? "0" + value : "" + value
+}
+
+export default {
+  private: {
+    isDark: false,
+    themeButtonText: "深色模式",
+    modeLabel: "浅色",
+    currentTime: "--:--",
+    trackingNo: "",
+    phone: "",
+    showPhoneInput: false,
+    expressLoading: false,
+    expressStateText: "",
+    hasError: false,
+    errorText: "",
+    showKeyboard: false,
+    isNumberKeyboard: true,
+    savedList: [],
+    expressInfo: {
+      title: "请输入运单号",
+      subtitle: "UApiPro-快递查询",
+      status: "",
+      details: []
+    }
+  },
+
+  onInit() {
+    this.isDark = getThemeSync()
+    this.themeButtonText = this.isDark ? "浅色模式" : "深色模式"
+    this.modeLabel = this.isDark ? "深色" : "浅色"
+    this.updateClock()
+    this.loadSavedList()
+  },
+
+  onShow() {
+    this.updateClock()
+    // 订阅物理按键导航
+    
+  },
+
+  onDestroy() {
+    // 取消导航订阅
+    
+  },
+
+  updateClock() {
+    var now = new Date()
+    this.currentTime = pad(now.getHours()) + ":" + pad(now.getMinutes())
+  },
+
+  toggleTheme() {
+    this.isDark = !this.isDark
+    this.themeButtonText = this.isDark ? "浅色模式" : "深色模式"
+    this.modeLabel = this.isDark ? "深色" : "浅色"
+    setTheme(this.isDark)
+  },
+
+  goHome() {
+    router.push({ uri: "pages/index" })
+  },
+
+  goNews() {
+    router.back()
+  },
+
+  goWeather() {
+    router.push({ uri: "pages/weather" })
+  },
+
+  toggleKeyboard() {
+    this.showKeyboard = !this.showKeyboard
+  },
+
+  togglePhoneKeyboard() {
+    // 手机号输入复用同一个键盘
+    this.showKeyboard = !this.showKeyboard
+  },
+
+  switchKeyboard() {
+    this.isNumberKeyboard = !this.isNumberKeyboard
+  },
+
+  onKeyTap(key) {
+    // 判断当前输入目标（通过焦点判断，简化处理：如果手机号输入框显示且键盘打开，则输入到手机号）
+    var isPhoneInput = this.showPhoneInput && this.showKeyboard
+
+    if (key === "DEL") {
+      if (isPhoneInput) {
+        if (this.phone.length > 0) {
+          this.phone = this.phone.substring(0, this.phone.length - 1)
+        }
+      } else {
+        if (this.trackingNo.length > 0) {
+          this.trackingNo = this.trackingNo.substring(0, this.trackingNo.length - 1)
+        }
+      }
+    } else if (key === "CLR") {
+      if (isPhoneInput) {
+        this.phone = ""
+      } else {
+        this.trackingNo = ""
+      }
+    } else if (key === "OK") {
+      this.showKeyboard = false
+    } else {
+      // 手机号只允许输入数字，且最多4位
+      if (isPhoneInput) {
+        if (/^\d$/.test(key) && this.phone.length < 4) {
+          this.phone += key
+        }
+      } else {
+        this.trackingNo += key
+      }
+    }
+  },
+
+  queryExpress() {
+    var trackingNo = this.trackingNo.trim()
+    if (!trackingNo) {
+      this.expressInfo = {
+        title: "请输入运单号",
+        subtitle: "UApiPro-快递查询",
+        status: "",
+        details: []
+      }
+      return
+    }
+
+    this.showKeyboard = false
+    this.expressLoading = true
+    this.expressStateText = "正在查询快递信息"
+    this.hasError = false
+
+    var self = this
+    var phone = this.phone ? this.phone.trim() : ""
+    getExpress(trackingNo, phone).then(function (info) {
+      self.expressInfo = info
+      self.expressLoading = false
+      self.showPhoneInput = false
+      self.saveToList(trackingNo)
+    }).catch(function (err) {
+      self.expressLoading = false
+      var errMsg = err.message || ""
+      // 检测是否需要手机号（顺丰等快递公司）
+      var needPhone = errMsg.indexOf("phone") !== -1 || errMsg.indexOf("手机") !== -1 ||
+                      errMsg.indexOf("INVALID_PARAMETER") !== -1
+      // 如果是顺丰单号（SF开头）且没有输入手机号，也显示手机号输入框
+      var isSF = trackingNo.toUpperCase().indexOf("SF") === 0
+      if (needPhone || (isSF && !phone)) {
+        self.promptPhone(trackingNo)
+      } else {
+        self.hasError = true
+        self.errorText = errMsg || "快递查询失败"
+      }
+    })
+  },
+
+  promptPhone(trackingNo) {
+    // 显示手机号输入框
+    this.showPhoneInput = true
+    this.hasError = false
+    this.errorText = ""
+  },
+
+  loadSavedList() {
+    this.savedList = []
+  },
+
+  saveToList(trackingNo) {
+    if (!trackingNo) return
+    var list = this.savedList.filter(function (item) { return item !== trackingNo })
+    list.unshift(trackingNo)
+    if (list.length > 10) list = list.slice(0, 10)
+    this.savedList = list
+  },
+
+  removeSaved(index) {
+    var list = this.savedList.filter(function (_, i) { return i !== index })
+    this.savedList = list
+  },
+
+  loadSaved(item) {
+    this.trackingNo = item
+    this.queryExpress()
+  }
+}
+</script>
+
+<style>
+text {
+  color: #172026;
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.page {
+  width: 320px;
+  height: 240px;
+  flex-direction: column;
+}
+
+.page-light {
+  background-color: #f2f5f6;
+}
+
+.main-panel-light {
+  background-color: #f2f5f6;
+}
+
+.card-light {
+  background-color: #ffffff;
+}
+
+.text-light {
+  color: #172026;
+}
+
+.text-light-sub {
+  color: #627279;
+}
+
+/* 顶部导航栏 */
+.top-nav {
+  width: 320px;
+  height: 45px;
+  padding: 5px 10px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.top-nav-light {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.top-nav-dark {
+  background-color: #171717;
+  border-bottom: 1px solid #333333;
+}
+
+.brand-block {
+  flex-direction: column;
+  justify-content: center;
+}
+
+.brand-en {
+  font-size: 8px;
+  color: #0074ff;
+  font-weight: bold;
+}
+
+.brand-title {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.nav-buttons {
+  flex-direction: row;
+  align-items: center;
+}
+
+.nav-button {
+  width: 48px;
+  height: 28px;
+  margin-left: 5px;
+  border-radius: 4px;
+  background-color: #e8eef0;
+  color: #172026;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.btn-light {
+  background-color: #e8eef0;
+  color: #172026;
+}
+
+.nav-button-active {
+  background-color: #0074ff;
+  color: #ffffff;
+}
+
+.theme-btn-light {
+  background-color: #e6f1ff;
+  color: #0057bf;
+}
+
+.theme-button {
+  width: 48px;
+  height: 28px;
+  margin-left: 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.content-area {
+  width: 320px;
+  height: 195px;
+  padding: 8px 12px;
+  flex-direction: column;
+}
+
+.action-row {
+  height: 30px;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.refresh-button {
+  width: 50px;
+  height: 26px;
+  border-radius: 4px;
+  background-color: #0074ff;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.express-panel {
+  height: 185px;
+  margin-top: 4px;
+  padding: 10px;
+  border-radius: 5px;
+  flex-direction: column;
+}
+
+.express-input-row {
+  height: 30px;
+  flex-direction: row;
+  align-items: center;
+}
+
+.express-input {
+  width: 180px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 4px;
+  justify-content: center;
+}
+
+.express-phone-input {
+  width: 100px;
+  height: 28px;
+  padding: 0 8px;
+  margin-left: 6px;
+  border-radius: 4px;
+  justify-content: center;
+}
+
+.express-input-text {
+  font-size: 12px;
+}
+
+.express-input-placeholder {
+  font-size: 12px;
+  color: #999999;
+}
+
+.express-query-btn {
+  width: 55px;
+  height: 28px;
+  margin-left: 8px;
+  border-radius: 4px;
+  background-color: #0074ff;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.express-loading {
+  height: 105px;
+  justify-content: center;
+  align-items: center;
+}
+
+.express-scroll {
+  height: 85px;
+  flex-direction: column;
+}
+
+.input-light {
+  background-color: #f0f4f5;
+  color: #172026;
+}
+
+.input-dark {
+  background-color: #2a2a2a;
+  color: #edf4f4;
+}
+
+.express-info-row {
+  flex-direction: row;
+  align-items: center;
+  height: 20px;
+}
+
+.express-tracking {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.express-sep {
+  font-size: 12px;
+  margin-left: 6px;
+  margin-right: 6px;
+}
+
+.express-cp {
+  font-size: 12px;
+}
+
+.express-status {
+  font-size: 10px;
+  color: #0074ff;
+  font-weight: bold;
+}
+
+.timeline {
+  margin-top: 8px;
+  flex-direction: column;
+}
+
+.timeline-item {
+  flex-direction: row;
+}
+
+.timeline-left {
+  width: 12px;
+  flex-direction: column;
+  align-items: center;
+}
+
+.timeline-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background-color: #0074ff;
+  margin-top: 3px;
+}
+
+.timeline-line {
+  width: 2px;
+  height: 18px;
+  background-color: #d0d8dc;
+  margin-top: 3px;
+}
+
+.timeline-right {
+  flex: 1;
+  flex-direction: column;
+  padding-left: 6px;
+  padding-bottom: 3px;
+}
+
+.timeline-time {
+  font-size: 10px;
+  margin-bottom: 2px;
+}
+
+.timeline-text {
+  font-size: 10px;
+}
+
+.timeline-time-latest {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.timeline-text-latest {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.saved-section {
+  margin-top: 6px;
+  flex-direction: column;
+}
+
+.saved-title {
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.saved-list {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.saved-item {
+  height: 20px;
+  padding: 0 8px;
+  margin-right: 5px;
+  margin-bottom: 4px;
+  border-radius: 10px;
+  background-color: #e8eef0;
+  flex-direction: row;
+  align-items: center;
+}
+
+.saved-item-dark {
+  background-color: #2a2a2a;
+}
+
+.saved-text {
+  font-size: 10px;
+}
+
+.saved-del {
+  font-size: 10px;
+  color: #999999;
+  margin-left: 4px;
+}
+
+.state-text {
+  font-size: 12px;
+}
+
+.state-box {
+  height: 105px;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.state-title {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.error-title {
+  color: #9e3f3f;
+}
+
+.keyboard {
+  flex-direction: column;
+  justify-content: center;
+  padding: 6px 8px;
+  margin-top: 8px;
+  border-radius: 5px;
+  background-color: #eef2f4;
+  height: 145px;
+}
+
+.kb-container {
+  flex-direction: column;
+}
+
+.kb-row {
+  height: 42px;
+  margin-bottom: 3px;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
+.kb-key {
+  width: 68px;
+  height: 38px;
+  margin: 0 2px;
+  border-radius: 5px;
+  background-color: #e8eef0;
+  color: #172026;
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.kb-key-del {
+  width: 68px;
+  height: 38px;
+  margin: 0 2px;
+  border-radius: 5px;
+  background-color: #d0d8dc;
+  color: #172026;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.kb-key-wide {
+  width: 68px;
+  height: 38px;
+  margin: 0 2px;
+  border-radius: 5px;
+  background-color: #d0d8dc;
+  color: #172026;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.kb-key-ok {
+  width: 68px;
+  height: 38px;
+  margin: 0 2px;
+  border-radius: 5px;
+  background-color: #0074ff;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.kb-key-switch {
+  width: 68px;
+  height: 38px;
+  margin: 0 2px;
+  border-radius: 5px;
+  background-color: #0074ff;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.kb-key-sm {
+  width: 22px;
+  height: 24px;
+  margin: 0 2px;
+  border-radius: 4px;
+  background-color: #e8eef0;
+  color: #172026;
+  font-size: 11px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.keyboard-dark .kb-key {
+  background-color: #2a2a2a;
+  color: #edf4f4;
+}
+
+.keyboard-dark .kb-key-del {
+  background-color: #333333;
+  color: #edf4f4;
+}
+
+.keyboard-dark .kb-key-wide {
+  background-color: #333333;
+  color: #edf4f4;
+}
+
+.keyboard-dark .kb-key-switch {
+  background-color: #0074ff;
+  color: #ffffff;
+}
+
+.keyboard-dark .kb-key-sm {
+  background-color: #2a2a2a;
+  color: #edf4f4;
+}
+
+.keyboard-dark {
+  background-color: #1e1e1e;
+}
+
+.page-dark {
+  background-color: #000000;
+}
+
+.main-panel-dark {
+  background-color: #202020;
+}
+
+.card-dark {
+  background-color: #171717;
+}
+
+.text-dark {
+  color: #edf4f4;
+}
+
+.text-dark-sub {
+  color: #aebdc2;
+}
+
+.btn-dark {
+  background-color: #262626;
+  color: #edf4f4;
+}
+
+.theme-btn-dark {
+  background-color: #1a2c40;
+  color: #6fb2ff;
+}
+</style>

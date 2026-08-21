@@ -3,7 +3,7 @@
   "team_id": "contest2026_007_Flux",
   "github_login": "AetherZeng1145",
   "generator": "claude-code-collector@1.2.0",
-  "updated_at": "2026-06-29T09:37:05.598Z",
+  "updated_at": "2026-08-21T06:19:27.029Z",
   "sessions": [
     {
       "session_id": "16d1607d-0ae8-4ccd-8576-af9ed474993c",
@@ -181,6 +181,18 @@
       "event_count": 529,
       "raw_event_count": 879,
       "file_path": "logs/AetherZeng1145/2026-06-29/claude-code__de37cd20-baa1-4f1e-8fec-71b54955d9fb.jsonl",
+      "collection_mode": "cli",
+      "health": "ok",
+      "model": "mimo-v2.5-pro"
+    },
+    {
+      "session_id": "b8f73d8a-8899-4c4c-b990-7bb20bab9bc4",
+      "tool": "claude-code",
+      "started_at": "2026-08-21T06:19:27.027Z",
+      "last_event_at": "2026-08-21T06:19:27.027Z",
+      "event_count": 31,
+      "raw_event_count": 50,
+      "file_path": "logs/AetherZeng1145/2026-08-21/claude-code__b8f73d8a-8899-4c4c-b990-7bb20bab9bc4.jsonl",
       "collection_mode": "cli",
       "health": "ok",
       "model": "mimo-v2.5-pro"

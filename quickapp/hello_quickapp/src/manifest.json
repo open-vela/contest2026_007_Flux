@@ -1,0 +1,56 @@
+{
+  "package": "com.flux.infoplat",
+  "name": "信息台InfoPlat",
+  "versionName": "1.0.0",
+  "versionCode": 1,
+  "minPlatformVersion": 1000,
+  "icon": "/common/logo.png",
+  "deviceTypeList": [
+    "watch"
+  ],
+  "features": [
+    {
+      "name": "system.router"
+    },
+    {
+      "name": "system.fetch",
+      "params": [
+        { "uri": "https://tmini.net" },
+        { "uri": "https://api.currentsapi.services" }
+      ]
+    },
+    {
+      "name": "system.prompt"
+    },
+    {
+      "name": "system.storage"
+    },
+    {
+      "name": "system.record"
+    }
+  ],
+  "config": {
+    "logLevel": "log",
+    "designWidth": 320
+  },
+  "router": {
+    "entry": "pages/index",
+    "pages": {
+      "pages/index": {
+        "component": "index"
+      },
+      "pages/news": {
+        "component": "news"
+      },
+      "pages/detail": {
+        "component": "detail"
+      },
+      "pages/express":{
+        "component": "express"
+      },
+      "pages/weather":{
+        "component": "weather"
+      }
+    }
+  }
+}

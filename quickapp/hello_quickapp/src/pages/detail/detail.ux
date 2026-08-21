@@ -1,0 +1,390 @@
+<template>
+  <div class="page {{ isDark ? 'page-dark' : 'page-light' }}">
+    <div class="topbar {{ isDark ? 'topbar-dark' : 'topbar-light' }}">
+      <input class="back-btn {{ isDark ? 'btn-dark' : 'btn-light' }}" type="button" value="返回" onclick="goBack" />
+      <text class="source {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">{{ source }}</text>
+    </div>
+    <scroll id="articleScroll" class="article" scroll-y="true" bounces="true" onswipe="onSwipe">
+      <text class="title {{ isDark ? 'text-dark' : 'text-light' }}">{{ title }}</text>
+      <text class="url-text {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}" if="{{ url }}">{{ url }}</text>
+
+      <div class="loading-box" if="{{ loading }}">
+        <text class="state-text {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">正在解析全文...</text>
+      </div>
+
+      <div class="loading-box" if="{{ !loading && pendingSPA }}">
+        <text class="state-text {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">SPA 页面，等待正文加载...</text>
+      </div>
+
+      <text class="desc {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}" if="{{ !loading && !pendingSPA && pageContent }}">{{ pageContent }}</text>
+    </scroll>
+
+    <div class="pager" if="{{ totalPages > 1 }}">
+      <text class="pager-link {{ currentPage <= 0 ? 'pager-link-disabled' : 'pager-link-active' }}" onclick="prevPage">上一页</text>
+      <text class="pager-info {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">{{ currentPage + 1 }}/{{ totalPages }}</text>
+      <text class="pager-link {{ currentPage >= totalPages - 1 ? 'pager-link-disabled' : 'pager-link-active' }}" onclick="nextPage">下一页</text>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from "@system.router"
+import fetch from "@system.fetch"
+import { parseHTML, isCaptcha, detectRedirect, resolveUrl, decodeAndStrip, logScoreTable } from "../../common/tecko-r"
+
+export default {
+  private: {
+    title: "新闻详情",
+    description: "暂无摘要",
+    source: "InfoPlat",
+    url: "",
+    fullContent: "",
+    pageContent: "",
+    pages: [],
+    currentPage: 0,
+    totalPages: 1,
+    loading: false,
+    pendingSPA: false,
+    isDark: false,
+    swipeDebounce: false
+  },
+
+  onInit() {
+    this.isDark = String(this.isDark) === "true"
+
+    if (this.url) {
+      this.fetchFullContent()
+    }
+  },
+
+  fetchFullContent() {
+    this.loading = true
+    this.fetchWithRedirect(this.url, 0)
+  },
+
+  fetchWithRedirect(url, depth) {
+    if (depth > 5) {
+      console.log("[详情页] 重定向次数过多，放弃获取全文")
+      this.loading = false
+      this.fullContent = ""
+      this.pageContent = "无法获取全文"
+      return
+    }
+
+    var self = this
+    fetch.fetch({
+      url: url,
+      method: "GET",
+      header: {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Mobile Safari/537.36"
+      },
+      success: function (res) {
+        var code = res.code || res.statusCode
+        var data = res.data !== undefined ? res.data : res.result
+        var headers = res.headers || {}
+
+        // 处理 HTTP 3xx 重定向
+        if (code >= 300 && code < 400) {
+          var location = headers["location"] || headers["Location"] || ""
+          if (location) {
+            self.fetchWithRedirect(location, depth + 1)
+            return
+          }
+        }
+
+        if (!data) {
+          console.log("[详情页] 获取内容为空")
+          self.loading = false
+          self.fullContent = ""
+          self.pageContent = "获取内容为空"
+          return
+        }
+
+        // 确保 data 是字符串
+        if (typeof data !== "string") {
+          try {
+            data = JSON.stringify(data)
+          } catch (e) {
+            self.loading = false
+            self.fullContent = ""
+            self.pageContent = "无法解析内容"
+            return
+          }
+        }
+
+        // 检测验证码页面
+        if (isCaptcha(data)) {
+          console.log("[详情页] 检测到验证码页面")
+          self.loading = false
+          self.fullContent = ""
+          self.pageContent = "需要验证"
+          return
+        }
+
+        // 检测重定向：meta refresh 或 JavaScript 跳转
+        var redirectUrl = detectRedirect(data, url)
+        if (redirectUrl) {
+          self.fetchWithRedirect(redirectUrl, depth + 1)
+          return
+        }
+
+        // 使用 Tecko-R 解析 HTML
+        var result = parseHTML(data)
+
+        // 打印评分表
+        if (result.ps && result.ps.length > 0) {
+          logScoreTable(result.ps, result.bscScores)
+        }
+
+        // SPA 页面：进入等待状态，后续传文再显示
+        if (result.isSPA) {
+          self.pendingSPA = true
+          self.loading = false
+          return
+        }
+
+        self.fullContent = result.text
+
+        // HTML解析失败时显示错误提示
+        if (!self.fullContent || self.fullContent.length < 30) {
+          console.log("[详情页] HTML解析失败，内容长度:", self.fullContent ? self.fullContent.length : 0)
+          self.fullContent = ""
+          self.pageContent = "无法获取全文"
+        } else {
+          self.paginate(self.fullContent)
+        }
+        self.loading = false
+      },
+      fail: function (data, code) {
+        console.log("[详情页] 网络请求失败，错误码:", code)
+        self.loading = false
+        self.fullContent = ""
+        self.pageContent = "无法获取全文，请查看原始链接"
+      }
+    })
+  },
+
+  paginate(text) {
+    if (!text) {
+      this.pages = [text || ""]
+      this.totalPages = 1
+      this.currentPage = 0
+      this.pageContent = text || ""
+      return
+    }
+
+    // Split by paragraphs (double newline)
+    var paragraphs = text.split(/\n\n+/)
+    var maxChars = 450
+    var pages = []
+    var currentPageText = ""
+    var currentLen = 0
+
+    for (var i = 0; i < paragraphs.length; i++) {
+      var p = paragraphs[i]
+      if (currentLen + p.length + 2 > maxChars && currentLen > 0) {
+        pages.push(currentPageText)
+        currentPageText = p
+        currentLen = p.length
+      } else {
+        if (currentLen > 0) {
+          currentPageText += "\n\n" + p
+          currentLen += p.length + 2
+        } else {
+          currentPageText = p
+          currentLen = p.length
+        }
+      }
+    }
+    if (currentLen > 0) {
+      pages.push(currentPageText)
+    }
+
+    this.pages = pages.length ? pages : [text]
+    this.totalPages = this.pages.length
+    this.currentPage = 0
+    this.pageContent = this.pages[0]
+  },
+
+  setPage(index) {
+    if (index < 0 || index >= this.totalPages) return
+    this.currentPage = index
+    this.pageContent = this.pages[index]
+    var el = this.$element("articleScroll")
+    if (el && el.scrollTo) {
+      el.scrollTo({ top: 0, behavior: "instant" })
+    }
+  },
+
+  prevPage() {
+    this.setPage(this.currentPage - 1)
+  },
+
+  nextPage() {
+    this.setPage(this.currentPage + 1)
+  },
+
+  onSwipe(e) {
+    if (this.swipeDebounce) return
+    if (!e || !e.direction) return
+
+    this.swipeDebounce = true
+    var self = this
+    setTimeout(function () {
+      self.swipeDebounce = false
+    }, 300)
+
+    // direction: 2=left (next), 4=right (prev) — QuickApp swipe direction codes
+    if (e.direction === 2) {
+      this.nextPage()
+    } else if (e.direction === 4) {
+      this.prevPage()
+    }
+  },
+
+  goBack() {
+    router.back()
+  },
+
+  // SPA 页面接收传文
+  setContent(text) {
+    if (!text) return
+    this.pendingSPA = false
+    this.fullContent = text
+    this.paginate(text)
+  }
+}
+</script>
+
+<style>
+.page {
+  width: 320px;
+  height: 240px;
+  flex-direction: column;
+}
+
+.page-light {
+  background-color: #f2f5f6;
+}
+
+.page-dark {
+  background-color: #000000;
+}
+
+.topbar {
+  height: 45px;
+  padding: 5px 12px;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.topbar-light {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.topbar-dark {
+  background-color: #171717;
+  border-bottom: 1px solid #333333;
+}
+
+.back-btn {
+  width: 50px;
+  height: 28px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.btn-light {
+  background-color: #e8eef0;
+  color: #172026;
+}
+
+.btn-dark {
+  background-color: #262626;
+  color: #edf4f4;
+}
+
+.text-dark {
+  color: #edf4f4;
+}
+
+.text-light {
+  color: #172026;
+}
+
+.text-dark-sub {
+  color: #b8c9d0;
+}
+
+.text-light-sub {
+  color: #3d4f5f;
+}
+
+.source {
+  width: 240px;
+  font-size: 11px;
+  text-align: right;
+  text-overflow: ellipsis;
+}
+
+.article {
+  height: 170px;
+  padding: 12px 16px;
+  flex-direction: column;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: bold;
+  line-height: 20px;
+}
+
+.url-text {
+  margin-top: 5px;
+  font-size: 9px;
+  lines: 2;
+  text-overflow: ellipsis;
+}
+
+.loading-box {
+  margin-top: 20px;
+  justify-content: center;
+  align-items: center;
+}
+
+.state-text {
+  font-size: 12px;
+}
+
+.desc {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 15px;
+}
+
+.pager {
+  height: 25px;
+  padding: 0 12px;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pager-link {
+  font-size: 12px;
+}
+
+.pager-link-active {
+  color: #0074ff;
+}
+
+.pager-link-disabled {
+  color: #c0c0c0;
+}
+
+.pager-info {
+  font-size: 11px;
+}
+</style>

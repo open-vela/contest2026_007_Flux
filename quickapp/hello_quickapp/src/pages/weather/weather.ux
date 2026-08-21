@@ -1,0 +1,950 @@
+<template>
+  <div class="page {{ isDark ? 'page-dark' : 'page-light' }}">
+    <div class="top-nav {{ isDark ? 'top-nav-dark' : 'top-nav-light' }}">
+      <div class="brand-block">
+        <text class="brand-en">INFOPLAT</text>
+        <text class="brand-title {{ isDark ? 'text-dark' : 'text-light' }}">信息台</text>
+      </div>
+      <div class="nav-buttons">
+        <input class="nav-button {{ isDark ? 'btn-dark' : 'btn-light' }}" type="button" value="首页" onclick="goHome" />
+        <input class="nav-button {{ isDark ? 'btn-dark' : 'btn-light' }}" type="button" value="新闻" onclick="goNews" />
+        <input class="nav-button nav-button-active" type="button" value="天气" />
+        <input class="nav-button {{ isDark ? 'btn-dark' : 'btn-light' }}" type="button" value="快递" onclick="goExpress" />
+        <input class="theme-button {{ isDark ? 'theme-btn-dark' : 'theme-btn-light' }}" type="button" value="{{ themeButtonText }}" onclick="toggleTheme" />
+      </div>
+    </div>
+
+    <div class="content-area {{ isDark ? 'main-panel-dark' : 'main-panel-light' }}">
+      <!-- ======== 天气主视图 ======== -->
+      <div class="weather-view" if="{{ !showCityPicker }}">
+        <div class="action-row">
+          <input class="city-select-btn {{ isDark ? 'btn-dark' : 'btn-light' }}" type="button" value="{{ cityList[currentCityIdx].name }}" onclick="openCityList" />
+          <input class="add-city-btn {{ isDark ? 'btn-dark' : 'btn-light' }}" type="button" value="+" onclick="openAddCity" if="{{ cityList.length < 5 }}" />
+          <input class="refresh-button" type="button" value="刷新" onclick="loadWeatherData" />
+        </div>
+
+        <scroll class="weather-panel" scroll-y="true" bounces="true">
+          <!-- 当日天气主卡片 -->
+          <div class="lead-card {{ isDark ? 'card-dark' : 'card-light' }}">
+            <div class="lead-left">
+              <text class="lead-city {{ isDark ? 'text-dark' : 'text-light' }}">{{ weatherInfo.title }}</text>
+              <text class="lead-desc {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">{{ weatherInfo.subtitle }}</text>
+            </div>
+            <text class="lead-temp {{ isDark ? 'text-dark' : 'text-light' }}">{{ weatherInfo.message }}</text>
+          </div>
+
+          <!-- 预警 -->
+          <div for="{{ weatherInfo.alerts }}">
+            <div class="alert-bar {{ isDark ? 'card-dark' : 'card-light' }}" onclick="toggleAlert($idx)">
+              <text class="alert-text">{{ $item.title }}</text>
+              <div class="alert-detail-wrap" if="{{ expandedAlertIdx === $idx }}">
+                <text class="alert-detail-title {{ isDark ? 'text-dark' : 'text-light' }}" if="{{ $item.alertTitle }}">{{ $item.alertTitle }}</text>
+                <text class="alert-detail {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}" if="{{ $item.desc }}">{{ $item.desc }}</text>
+              </div>
+            </div>
+          </div>
+
+          <!-- 当日主要数据网格 -->
+          <div class="detail-grid">
+            <div class="detail-card {{ isDark ? 'card-dark' : 'card-light' }}" for="{{ weatherInfo.details }}">
+              <text class="detail-label {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">{{ $item.label }}</text>
+              <text class="detail-value {{ isDark ? 'text-dark' : 'text-light' }}">{{ $item.value }}</text>
+            </div>
+          </div>
+
+          <!-- 7天预报 -->
+          <div class="section-card {{ isDark ? 'card-dark' : 'card-light' }}" if="{{ weatherInfo.forecasts.length > 0 }}">
+            <text class="section-title {{ isDark ? 'text-dark' : 'text-light' }}">7天预报</text>
+            <div for="{{ weatherInfo.forecasts }}">
+              <div class="forecast-row {{ isDark ? 'card-dark' : 'card-light' }}">
+                <text class="forecast-day {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">{{ $item.day }}</text>
+                <text class="forecast-info {{ isDark ? 'text-dark' : 'text-light' }}">{{ $item.info }}</text>
+              </div>
+            </div>
+          </div>
+
+          <!-- 次要天气数据 -->
+          <div class="detail-grid" if="{{ weatherInfo.detailsExtra.length > 0 }}">
+            <div class="detail-card {{ isDark ? 'card-dark' : 'card-light' }}" for="{{ weatherInfo.detailsExtra }}">
+              <text class="detail-label {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">{{ $item.label }}</text>
+              <text class="detail-value {{ isDark ? 'text-dark' : 'text-light' }}">{{ $item.value }}</text>
+            </div>
+          </div>
+
+          <!-- 生活指数 -->
+          <div class="section-card {{ isDark ? 'card-dark' : 'card-light' }}" if="{{ weatherInfo.indexes.length > 0 }}">
+            <text class="section-title {{ isDark ? 'text-dark' : 'text-light' }}">生活指数</text>
+            <div for="{{ weatherInfo.indexes }}">
+              <div class="index-item {{ isDark ? 'card-dark' : 'card-light' }}">
+                <text class="index-name {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}">{{ $item.name }}</text>
+                <text class="index-brief {{ isDark ? 'text-dark' : 'text-light' }}">{{ $item.brief }}</text>
+                <text class="index-detail {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}" if="{{ $item.detail }}">{{ $item.detail }}</text>
+              </div>
+            </div>
+          </div>
+        </scroll>
+      </div>
+
+      <!-- ======== 城市选择视图 ======== -->
+      <div class="picker-view" if="{{ showCityPicker }}">
+        <div class="picker-header">
+          <input class="picker-back-btn {{ isDark ? 'btn-dark' : 'btn-light' }}" type="button" value="{{ showAddCity ? '返回' : '关闭' }}" onclick="pickerBack" />
+          <text class="picker-title {{ isDark ? 'text-dark' : 'text-light' }}">{{ showAddCity ? '添加城市' : '选择城市' }}</text>
+        </div>
+
+        <!-- 城市列表视图 -->
+        <div class="picker-body" if="{{ !showAddCity }}">
+          <scroll class="picker-scroll" scroll-y="true" bounces="true">
+            <div class="city-list">
+              <div for="{{ cityList }}" class="city-item {{ isDark ? 'card-dark' : 'card-light' }}">
+                <input class="city-item-btn {{ isDark ? 'btn-dark' : 'btn-light' }}" type="button" value="{{ $item.name }}" onclick="selectCity($idx)" />
+                <input class="city-item-del {{ isDark ? 'btn-dark' : 'btn-light' }}" type="button" value="×" onclick="deleteCity($idx)" if="{{ $idx > 0 }}" />
+              </div>
+            </div>
+          </scroll>
+          <div class="add-city-row" if="{{ cityList.length < 5 }}">
+            <input class="add-city-full-btn" type="button" value="+ 添加城市" onclick="openAddCity" />
+          </div>
+        </div>
+
+        <!-- 添加城市视图（原来的三级联动） -->
+        <div class="picker-body" if="{{ showAddCity }}">
+          <div class="breadcrumb" if="{{ pickerLevel > 0 }}">
+            <input class="breadcrumb-link" type="button" value="全部地区" onclick="jumpToRegion" />
+            <text class="breadcrumb-sep {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}" if="{{ pickerLevel >= 1 }}"> ></text>
+            <input class="breadcrumb-link" type="button" value="{{ regionLabel }}" onclick="jumpToProvince" if="{{ pickerLevel >= 1 }}" />
+            <text class="breadcrumb-sep {{ isDark ? 'text-dark-sub' : 'text-light-sub' }}" if="{{ pickerLevel === 2 }}"> ></text>
+            <text class="breadcrumb-current {{ isDark ? 'text-dark' : 'text-light' }}" if="{{ pickerLevel === 2 }}">{{ provinceLabel }}</text>
+          </div>
+
+          <!-- 地区列表：7个按钮，两列布局 -->
+          <div class="picker-list" if="{{ pickerLevel === 0 }}">
+            <div class="picker-row">
+              <input class="picker-btn {{ isDark ? 'picker-btn-dark' : '' }}" type="button" value="华北" onclick="pickRegion(0)" />
+              <input class="picker-btn {{ isDark ? 'picker-btn-dark' : '' }}" type="button" value="东北" onclick="pickRegion(1)" />
+            </div>
+            <div class="picker-row">
+              <input class="picker-btn {{ isDark ? 'picker-btn-dark' : '' }}" type="button" value="华东" onclick="pickRegion(2)" />
+              <input class="picker-btn {{ isDark ? 'picker-btn-dark' : '' }}" type="button" value="华中" onclick="pickRegion(3)" />
+            </div>
+            <div class="picker-row">
+              <input class="picker-btn {{ isDark ? 'picker-btn-dark' : '' }}" type="button" value="华南" onclick="pickRegion(4)" />
+              <input class="picker-btn {{ isDark ? 'picker-btn-dark' : '' }}" type="button" value="西南" onclick="pickRegion(5)" />
+            </div>
+            <div class="picker-row">
+              <input class="picker-btn {{ isDark ? 'picker-btn-dark' : '' }}" type="button" value="西北" onclick="pickRegion(6)" />
+            </div>
+          </div>
+
+          <!-- 省份列表（双列） -->
+          <scroll class="picker-scroll" scroll-y="true" bounces="true" if="{{ pickerLevel === 1 }}">
+            <div class="picker-wrap">
+              <input class="picker-btn {{ isDark ? 'picker-btn-dark' : '' }}" type="button" for="{{ pickerList }}" value="{{ $item }}" onclick="pickProvince($idx)" />
+            </div>
+          </scroll>
+
+          <!-- 城市列表（双列） -->
+          <scroll class="picker-scroll" scroll-y="true" bounces="true" if="{{ pickerLevel === 2 }}">
+            <div class="picker-wrap">
+              <input class="picker-btn {{ isDark ? 'picker-btn-dark' : '' }}" type="button" for="{{ pickerList }}" value="{{ $item }}" onclick="pickCity($idx)" />
+            </div>
+          </scroll>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from "@system.router"
+import storage from "@system.storage"
+import { getWeather } from "../../common/services"
+import { getThemeSync, initTheme, setTheme } from "../../common/theme"
+import { regions } from "../../common/cities"
+
+function pad(value) {
+  return value < 10 ? "0" + value : "" + value
+}
+
+var CITY_LIST_STORAGE_KEY = "infoWeatherCityList"
+
+export default {
+  private: {
+    isDark: false,
+    themeButtonText: "深色模式",
+    modeLabel: "浅色",
+    currentTime: "--:--",
+    cityList: [],
+    currentCityIdx: 0,
+    showCityPicker: false,
+    showAddCity: false,
+    pickerLevel: 0,
+    pickerTitle: "选择地区",
+    pickerList: [],
+    regionLabel: "",
+    provinceLabel: "",
+    selectedRegionIdx: -1,
+    selectedProvinceIdx: -1,
+    expandedAlertIdx: -1,
+    weatherInfo: {
+      title: "定位中...",
+      subtitle: "正在获取天气...",
+      message: "--°C",
+      details: [],
+      detailsExtra: [],
+      indexes: [],
+      forecasts: [],
+      alerts: []
+    }
+  },
+
+  onInit() {
+    var self = this
+    initTheme(function (isDark) {
+      self.isDark = isDark
+      self.themeButtonText = isDark ? "浅色模式" : "深色模式"
+      self.modeLabel = isDark ? "深色" : "浅色"
+    })
+    this.updateClock()
+    this.loadSavedCity()
+  },
+
+  onShow() {
+    this.updateClock()
+    // 订阅物理按键导航
+    
+  },
+
+  onDestroy() {
+    // 取消导航订阅
+    
+  },
+
+  updateClock() {
+    var now = new Date()
+    this.currentTime = pad(now.getHours()) + ":" + pad(now.getMinutes())
+  },
+
+  toggleTheme() {
+    this.isDark = !this.isDark
+    this.themeButtonText = this.isDark ? "浅色模式" : "深色模式"
+    this.modeLabel = this.isDark ? "深色" : "浅色"
+    setTheme(this.isDark)
+  },
+
+  goHome() {
+    router.push({ uri: "pages/index" })
+  },
+
+  goNews() {
+    router.back()
+  },
+
+  goExpress() {
+    router.push({ uri: "pages/express" })
+  },
+
+  loadSavedCity() {
+    var self = this
+    storage.get({
+      key: CITY_LIST_STORAGE_KEY,
+      success: function (data) {
+        if (data) {
+          try {
+            self.cityList = JSON.parse(data)
+          } catch (e) {
+            self.cityList = []
+          }
+        }
+        if (self.cityList.length === 0) {
+          self.cityList = [{ name: "定位中...", city: null }]
+        }
+        self.loadWeatherData()
+      },
+      fail: function () {
+        self.cityList = [{ name: "定位中...", city: null }]
+        self.loadWeatherData()
+      }
+    })
+  },
+
+  saveCityList() {
+    storage.set({
+      key: CITY_LIST_STORAGE_KEY,
+      value: JSON.stringify(this.cityList)
+    })
+  },
+
+  switchCity(idx) {
+    this.currentCityIdx = idx
+    this.loadWeatherData()
+  },
+
+  toggleAlert(idx) {
+    this.expandedAlertIdx = this.expandedAlertIdx === idx ? -1 : idx
+  },
+
+  openCityList() {
+    this.showAddCity = false
+    this.showCityPicker = true
+  },
+
+  openAddCity() {
+    this.pickerLevel = 0
+    this.pickerTitle = "添加城市"
+    this.regionLabel = ""
+    this.provinceLabel = ""
+    this.selectedRegionIdx = -1
+    this.selectedProvinceIdx = -1
+    this.pickerList = []
+    this.showAddCity = true
+    this.showCityPicker = true
+  },
+
+  selectCity(idx) {
+    this.currentCityIdx = idx
+    this.showCityPicker = false
+    this.loadWeatherData()
+  },
+
+  deleteCity(idx) {
+    if (idx <= 0 || idx >= this.cityList.length) return
+    this.cityList.splice(idx, 1)
+    if (this.currentCityIdx >= this.cityList.length) {
+      this.currentCityIdx = this.cityList.length - 1
+    } else if (this.currentCityIdx > idx) {
+      this.currentCityIdx--
+    }
+    this.saveCityList()
+    this.loadWeatherData()
+  },
+
+  pickRegion(idx) {
+    this.selectedRegionIdx = idx
+    this.regionLabel = regions[idx].name
+    this.pickerTitle = regions[idx].name
+    var names = []
+    var provs = regions[idx].provinces
+    for (var i = 0; i < provs.length; i++) {
+      names.push(provs[i].name)
+    }
+    this.pickerList = names
+    this.pickerLevel = 1
+  },
+
+  pickProvince(idx) {
+    if (this.selectedRegionIdx < 0 || idx < 0) return
+    var provs = regions[this.selectedRegionIdx].provinces
+    if (idx >= provs.length) return
+    this.selectedProvinceIdx = idx
+    this.provinceLabel = provs[idx].name
+    this.pickerTitle = this.provinceLabel
+    this.pickerList = provs[idx].cities
+    this.pickerLevel = 2
+  },
+
+  pickCity(idx) {
+    if (idx < 0 || idx >= this.pickerList.length) return
+    var cityName = this.pickerList[idx]
+
+    // 检查是否已存在
+    for (var i = 0; i < this.cityList.length; i++) {
+      if (this.cityList[i].city === cityName) {
+        // 已存在，直接切换
+        this.currentCityIdx = i
+        this.showCityPicker = false
+        this.loadWeatherData()
+        return
+      }
+    }
+
+    // 检查数量限制（最多 5 个）
+    if (this.cityList.length >= 5) {
+      prompt.showToast({ message: "最多添加 5 个城市" })
+      return
+    }
+
+    // 不存在，添加到列表
+    this.cityList.push({
+      name: cityName,
+      city: cityName
+    })
+    this.currentCityIdx = this.cityList.length - 1
+    this.saveCityList()
+    this.showCityPicker = false
+    this.loadWeatherData()
+  },
+
+  pickerBack() {
+    if (!this.showAddCity) {
+      // 城市列表视图，点击关闭
+      this.showCityPicker = false
+    } else if (this.pickerLevel === 2) {
+      // 省份下的城市列表，返回到省份列表
+      this.pickerLevel = 1
+      this.pickerTitle = this.regionLabel
+      var provs = regions[this.selectedRegionIdx].provinces
+      var names = []
+      for (var i = 0; i < provs.length; i++) {
+        names.push(provs[i].name)
+      }
+      this.pickerList = names
+    } else if (this.pickerLevel === 1) {
+      // 省份列表，返回到地区列表
+      this.pickerLevel = 0
+      this.pickerTitle = "添加城市"
+      this.regionLabel = ""
+      this.provinceLabel = ""
+      this.selectedRegionIdx = -1
+      this.pickerList = []
+    } else {
+      // 地区列表，返回到城市列表
+      this.showAddCity = false
+    }
+  },
+
+  jumpToRegion() {
+    this.pickerLevel = 0
+    this.pickerTitle = "选择地区"
+    this.regionLabel = ""
+    this.provinceLabel = ""
+    this.selectedRegionIdx = -1
+    this.pickerList = []
+  },
+
+  jumpToProvince() {
+    if (this.selectedRegionIdx < 0) return
+    this.pickerLevel = 1
+    this.pickerTitle = this.regionLabel
+    var provs = regions[this.selectedRegionIdx].provinces
+    var names = []
+    for (var i = 0; i < provs.length; i++) {
+      names.push(provs[i].name)
+    }
+    this.pickerList = names
+  },
+
+  loadWeatherData() {
+    var self = this
+    var cityInfo = self.cityList[self.currentCityIdx]
+    var city = cityInfo.city  // 第一个城市是 null，其他是城市名
+
+    getWeather(city).then(function (info) {
+      self.weatherInfo = info
+      self.expandedAlertIdx = -1
+
+      // 如果是 IP 定位城市，更新显示名称
+      if (city === null && info.ready) {
+        var displayName = info.title  // API 返回的 title 已经是 city + district
+        self.cityList[0].name = displayName
+        self.saveCityList()
+      }
+    }).catch(function () {
+      self.weatherInfo = {
+        title: cityInfo.name,
+        subtitle: "天气获取失败",
+        message: "--°C",
+        details: [],
+        detailsExtra: [],
+        indexes: [],
+        forecasts: [],
+        alerts: []
+      }
+    })
+  }
+}
+</script>
+
+<style>
+text {
+  color: #172026;
+  font-size: 14px;
+  line-height: 18px;
+}
+
+/* ========== 页面框架 ========== */
+.page {
+  width: 320px;
+  height: 240px;
+  flex-direction: column;
+}
+
+.page-light {
+  background-color: #f2f5f6;
+}
+
+.main-panel-light {
+  background-color: #f2f5f6;
+}
+
+.card-light {
+  background-color: #ffffff;
+}
+
+.text-light {
+  color: #172026;
+}
+
+.text-light-sub {
+  color: #627279;
+}
+
+/* ========== 顶部导航栏 ========== */
+.top-nav {
+  width: 320px;
+  height: 45px;
+  padding: 5px 10px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.top-nav-light {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.top-nav-dark {
+  background-color: #171717;
+  border-bottom: 1px solid #333333;
+}
+
+.brand-block {
+  flex-direction: column;
+  justify-content: center;
+}
+
+.brand-en {
+  font-size: 8px;
+  color: #0074ff;
+  font-weight: bold;
+}
+
+.brand-title {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.nav-buttons {
+  flex-direction: row;
+  align-items: center;
+}
+
+.nav-button {
+  width: 48px;
+  height: 28px;
+  margin-left: 5px;
+  border-radius: 4px;
+  background-color: #e8eef0;
+  color: #172026;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.btn-light {
+  background-color: #e8eef0;
+  color: #172026;
+}
+
+.nav-button-active {
+  background-color: #0074ff;
+  color: #ffffff;
+}
+
+.theme-btn-light {
+  background-color: #e6f1ff;
+  color: #0057bf;
+}
+
+.theme-button {
+  width: 48px;
+  height: 28px;
+  margin-left: 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+/* ========== 主内容区 ========== */
+.content-area {
+  width: 320px;
+  height: 195px;
+  padding: 8px 12px;
+  flex-direction: column;
+}
+
+/* ========== 天气视图 ========== */
+.weather-view {
+  flex-direction: column;
+}
+
+.action-row {
+  height: 30px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.city-select-btn {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  flex: 1;
+}
+
+.add-city-btn {
+  width: 26px;
+  height: 26px;
+  margin-left: 4px;
+  margin-right: 4px;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.refresh-button {
+  width: 50px;
+  height: 26px;
+  border-radius: 4px;
+  background-color: #0074ff;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* 天气内容滚动区 */
+.weather-panel {
+  height: 155px;
+  margin-top: 8px;
+  flex-direction: column;
+}
+
+/* 当日主卡片 */
+.lead-card {
+  padding: 12px;
+  border-radius: 5px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lead-left {
+  flex: 1;
+  flex-direction: column;
+}
+
+.lead-city {
+  font-size: 16px;
+  font-weight: bold;
+  line-height: 20px;
+}
+
+.lead-desc {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 15px;
+}
+
+.lead-temp {
+  font-size: 22px;
+  font-weight: bold;
+  color: #0074ff;
+  margin-left: 8px;
+  line-height: 28px;
+}
+
+/* 天气数据网格 */
+.detail-grid {
+  margin-top: 8px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.detail-card {
+  width: 95px;
+  height: 38px;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.detail-label {
+  font-size: 10px;
+}
+
+.detail-value {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* 预警 */
+.alert-bar {
+  margin-bottom: 6px;
+  padding: 8px;
+  border-radius: 5px;
+  background-color: #fff3cd;
+  flex-direction: column;
+}
+
+.alert-text {
+  font-size: 12px;
+  color: #856404;
+}
+
+.alert-detail-wrap {
+  margin-top: 6px;
+  padding-top: 6px;
+  flex-direction: column;
+}
+
+.alert-detail-title {
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 15px;
+}
+
+.alert-detail {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+/* 7天预报 */
+.section-card {
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 5px;
+  flex-direction: column;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.forecast-row {
+  width: 100%;
+  height: 28px;
+  margin-bottom: 6px;
+  padding: 0 10px;
+  border-radius: 4px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.forecast-day {
+  font-size: 11px;
+}
+
+.forecast-info {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* 生活指数 */
+.index-item {
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  flex-direction: column;
+}
+
+.index-name {
+  font-size: 10px;
+  margin-bottom: 3px;
+}
+
+.index-brief {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.index-detail {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+/* ========== 城市选择器 ========== */
+.picker-view {
+  flex: 1;
+  flex-direction: column;
+}
+
+.picker-header {
+  height: 30px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.picker-back-btn {
+  width: 50px;
+  height: 26px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.picker-title {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.breadcrumb {
+  height: 20px;
+  margin-top: 3px;
+  margin-bottom: 5px;
+  flex-direction: row;
+  align-items: center;
+}
+
+.breadcrumb-link {
+  height: 16px;
+  background-color: transparent;
+  font-size: 10px;
+  color: #0074ff;
+}
+
+.breadcrumb-sep {
+  font-size: 10px;
+  margin-left: 3px;
+  margin-right: 3px;
+}
+
+.breadcrumb-current {
+  font-size: 10px;
+  font-weight: bold;
+}
+
+/* 选择器主体 */
+.picker-body {
+  flex: 1;
+  flex-direction: column;
+}
+
+/* 城市列表 */
+.city-list {
+  flex-direction: column;
+}
+
+.city-item {
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 6px;
+  padding: 8px;
+  border-radius: 5px;
+}
+
+.city-item-btn {
+  flex: 1;
+  height: 28px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.city-item-del {
+  width: 28px;
+  height: 28px;
+  margin-left: 8px;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.add-city-row {
+  margin-top: 8px;
+  flex-direction: row;
+  justify-content: center;
+}
+
+.add-city-full-btn {
+  height: 30px;
+  padding: 0 20px;
+  border-radius: 5px;
+  background-color: #0074ff;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* 地区列表（两列） */
+.picker-list {
+  flex-direction: column;
+}
+
+.picker-row {
+  flex-direction: row;
+  margin-bottom: 8px;
+  justify-content: space-between;
+}
+
+.picker-btn {
+  width: 145px;
+  height: 30px;
+  border-radius: 5px;
+  background-color: #f0f4f5;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* 省份/城市列表（双列） */
+.picker-scroll {
+  flex: 1;
+  flex-direction: column;
+}
+
+.picker-wrap {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.picker-wrap .picker-btn {
+  margin-bottom: 8px;
+}
+
+.picker-btn-dark {
+  background-color: #2a2a2a;
+  color: #edf4f4;
+}
+
+/* ========== 深色模式 ========== */
+.page-dark {
+  background-color: #000000;
+}
+
+.main-panel-dark {
+  background-color: #202020;
+}
+
+.card-dark {
+  background-color: #171717;
+}
+
+.text-dark {
+  color: #edf4f4;
+}
+
+.text-dark-sub {
+  color: #aebdc2;
+}
+
+.btn-dark {
+  background-color: #262626;
+  color: #edf4f4;
+}
+
+.theme-btn-dark {
+  background-color: #1a2c40;
+  color: #6fb2ff;
+}
+</style>
