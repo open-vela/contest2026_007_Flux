@@ -64,7 +64,6 @@ export default {
 
   fetchWithRedirect(url, depth) {
     if (depth > 5) {
-      console.log("[详情页] 重定向次数过多，放弃获取全文")
       this.loading = false
       this.fullContent = ""
       this.pageContent = "无法获取全文"
@@ -93,7 +92,6 @@ export default {
         }
 
         if (!data) {
-          console.log("[详情页] 获取内容为空")
           self.loading = false
           self.fullContent = ""
           self.pageContent = "获取内容为空"
@@ -114,7 +112,6 @@ export default {
 
         // 检测验证码页面
         if (isCaptcha(data)) {
-          console.log("[详情页] 检测到验证码页面")
           self.loading = false
           self.fullContent = ""
           self.pageContent = "需要验证"
@@ -129,7 +126,9 @@ export default {
         }
 
         // 使用 Tecko-R 解析 HTML
+        var t = Date.now()
         var result = parseHTML(data)
+        console.log("PERF-Tecko解析: " + (Date.now() - t) + "ms")
 
         // 打印评分表
         if (result.ps && result.ps.length > 0) {
@@ -147,7 +146,6 @@ export default {
 
         // HTML解析失败时显示错误提示
         if (!self.fullContent || self.fullContent.length < 30) {
-          console.log("[详情页] HTML解析失败，内容长度:", self.fullContent ? self.fullContent.length : 0)
           self.fullContent = ""
           self.pageContent = "无法获取全文"
         } else {
@@ -156,7 +154,6 @@ export default {
         self.loading = false
       },
       fail: function (data, code) {
-        console.log("[详情页] 网络请求失败，错误码:", code)
         self.loading = false
         self.fullContent = ""
         self.pageContent = "无法获取全文，请查看原始链接"

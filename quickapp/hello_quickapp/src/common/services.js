@@ -75,10 +75,12 @@ function decodeHtmlEntities(text) {
 
 function stripHtmlAndFilter(text) {
   if (!text) return ""
+  var t = Date.now()
   var cleanText = decodeHtmlEntities(text)
   cleanText = cleanText.replace(/<[^>]+>/g, " ")
   var lines = cleanText.split(/[\r\n]+/)
   var filteredLines = lines.filter(function (line) { return line.indexOf("⬅️") === -1 })
+  console.log("PERF-HTML解码: " + (Date.now() - t) + "ms")
   return filteredLines.join("\n").trim()
 }
 
@@ -167,10 +169,12 @@ function formatDate(dateStr) {
 
 function normalizeNews(item) {
   if (!item) return null
+  var t = Date.now()
   var category = item.category && item.category.length ? item.category.join(" / ") : ""
   var source = extractSourceName(item.url) || item.author || "未知来源"
   var title = stripHtmlAndFilter(item.title) || "未命名新闻"
   var desc = cleanDescription(item.description) || "暂无摘要"
+  console.log("PERF-新闻解析: " + (Date.now() - t) + "ms")
   return {
     id: item.id || "",
     title: title,
@@ -253,8 +257,6 @@ function request(options) {
   var method = options.method || "GET"
   var responseType = options.responseType || "json"
 
-  console.log("request: " + method + " " + url)
-
   return new Promise(function (resolve, reject) {
     fetch.fetch({
       url: url,
@@ -262,7 +264,6 @@ function request(options) {
       header: options.header || {},
       responseType: responseType,
       success: function (res) {
-        console.log("request success: code=" + (res.code || res.statusCode) + ", url=" + url)
         try {
           var code = res.code || res.statusCode
           var data = res.data !== undefined ? res.data : res.result
@@ -283,7 +284,6 @@ function request(options) {
         }
       },
       fail: function (data, code) {
-        console.log("request fail: url=" + url + ", code=" + code)
         reject(new Error("network error"))
       }
     })

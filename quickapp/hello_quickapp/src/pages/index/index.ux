@@ -59,20 +59,11 @@ import storage from "@system.storage"
 import { getWeather, getLatestNews, getTodayInHistory } from "../../common/services"
 import { getThemeSync, setTheme } from "../../common/theme"
 
-// 测试录音模块是否存在
-var _record = null
-try {
-  _record = require("@system.record")
-  console.log("[TEST] system.record 加载成功: " + JSON.stringify(Object.keys(_record)))
-} catch (e) {
-  console.log("[TEST] system.record 不存在: " + e.message)
-}
-
 function pad(value) {
   return value < 10 ? "0" + value : "" + value
 }
 
-var CITY_STORAGE_KEY = "infoWeatherCity"
+var CITY_LIST_STORAGE_KEY = "infoWeatherCityList"
 
 export default {
   private: {
@@ -81,7 +72,7 @@ export default {
     modeLabel: "浅色",
     currentTime: "--:--",
     currentDate: "",
-    weatherSummary: "获取天气中...",
+    weatherSummary: "定位中...",
     newsTitle: "正在加载新闻...",
     newsSource: "",
     newsUrl: "",
@@ -90,6 +81,7 @@ export default {
   },
 
   onInit() {
+    this._t_pageLoad = Date.now()
     this.isDark = getThemeSync()
     this.themeButtonText = this.isDark ? "浅色模式" : "深色模式"
     this.modeLabel = this.isDark ? "深色" : "浅色"
@@ -102,6 +94,7 @@ export default {
     this.updateDate()
     // 串行调用，避免并发 fetch 导致框架崩溃
     this.loadWeather()
+    console.log("PERF-首页加载: " + (Date.now() - this._t_pageLoad) + "ms")
   },
 
   onDestroy() {
@@ -119,10 +112,12 @@ export default {
   },
 
   toggleTheme() {
+    var t = Date.now()
     this.isDark = !this.isDark
     this.themeButtonText = this.isDark ? "浅色模式" : "深色模式"
     this.modeLabel = this.isDark ? "深色" : "浅色"
     setTheme(this.isDark)
+    console.log("PERF-主题切换: " + (Date.now() - t) + "ms")
   },
 
   goNews() {
@@ -154,26 +149,37 @@ export default {
   loadWeather() {
     var self = this
     storage.get({
-      key: CITY_STORAGE_KEY,
+      key: CITY_LIST_STORAGE_KEY,
       success: function (data) {
-        var city = data || "北京"
-        self.fetchWeather(city)
+        try {
+          var list = JSON.parse(data)
+          if (list && list.length > 0) {
+            self.fetchWeather(list[0].city)
+          } else {
+            self.fetchWeather(null)
+          }
+        } catch (e) {
+          self.fetchWeather(null)
+        }
       },
       fail: function () {
-        self.fetchWeather("北京")
+        self.fetchWeather(null)
       }
     })
   },
 
   fetchWeather(city) {
     var self = this
-    self.weatherSummary = city + " 获取天气中..."
+    self.weatherSummary = "定位中..."
+    var t = Date.now()
     getWeather(city).then(function (info) {
+      console.log("PERF-天气API: " + (Date.now() - t) + "ms")
       self.weatherSummary = info.title + " " + info.message + " " + info.subtitle
       // 天气加载完后，加载新闻
       self.loadNews()
     }).catch(function () {
-      self.weatherSummary = city + " 天气获取失败"
+      console.log("PERF-天气API: " + (Date.now() - t) + "ms")
+      self.weatherSummary = "天气获取失败"
       // 失败也要继续加载新闻
       self.loadNews()
     })
@@ -181,7 +187,9 @@ export default {
 
   loadNews() {
     var self = this
+    var t = Date.now()
     getLatestNews({ categories: ["politics"], pageSize: 20 }).then(function (list) {
+      console.log("PERF-新闻API: " + (Date.now() - t) + "ms")
       if (list && list.length) {
         self.newsTitle = list[0].title
         self.newsSource = list[0].source + " · " + list[0].published
@@ -191,6 +199,7 @@ export default {
       // 新闻加载完后，加载历史
       self.loadHistory()
     }).catch(function () {
+      console.log("PERF-新闻API: " + (Date.now() - t) + "ms")
       self.newsTitle = "新闻获取失败"
       // 失败也要继续加载历史
       self.loadHistory()
@@ -206,7 +215,9 @@ export default {
 
   loadHistory() {
     var self = this
+    var t = Date.now()
     getTodayInHistory().then(function (list) {
+      console.log("PERF-历史API: " + (Date.now() - t) + "ms")
       if (list && list.length) {
         var formatted = list.map(function (item) {
           return { title: item.title, year: item.year, yearLabel: self.formatHistoryYear(item.year), desc: item.desc, link: item.link }
@@ -214,6 +225,7 @@ export default {
         self.historyList = formatted
       }
     }).catch(function () {
+      console.log("PERF-历史API: " + (Date.now() - t) + "ms")
       // 历史加载失败，静默处理
     })
   }
