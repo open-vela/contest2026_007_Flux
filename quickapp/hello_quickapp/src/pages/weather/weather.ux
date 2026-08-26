@@ -211,8 +211,6 @@ export default {
 
   onShow() {
     this.updateClock()
-    // 订阅物理按键导航
-    
   },
 
   onDestroy() {
@@ -226,10 +224,12 @@ export default {
   },
 
   toggleTheme() {
+    var t = Date.now()
     this.isDark = !this.isDark
     this.themeButtonText = this.isDark ? "浅色模式" : "深色模式"
     this.modeLabel = this.isDark ? "深色" : "浅色"
     setTheme(this.isDark)
+    console.log("PERF-主题切换: " + (Date.now() - t) + "ms")
   },
 
   goHome() {
@@ -237,7 +237,7 @@ export default {
   },
 
   goNews() {
-    router.back()
+    router.push({ uri: "pages/news"})
   },
 
   goExpress() {
@@ -428,7 +428,7 @@ export default {
     var self = this
     var cityInfo = self.cityList[self.currentCityIdx]
     var city = cityInfo.city  // 第一个城市是 null，其他是城市名
-
+    var t = Date.now()
     getWeather(city).then(function (info) {
       self.weatherInfo = info
       self.expandedAlertIdx = -1
@@ -439,6 +439,7 @@ export default {
         self.cityList[0].name = displayName
         self.saveCityList()
       }
+      console.log("PERF-天气渲染: " + (Date.now() - t) + "ms")
     }).catch(function () {
       self.weatherInfo = {
         title: cityInfo.name,
@@ -450,6 +451,7 @@ export default {
         forecasts: [],
         alerts: []
       }
+      console.log("PERF-天气渲染: " + (Date.now() - t) + "ms")
     })
   }
 }

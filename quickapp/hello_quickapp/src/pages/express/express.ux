@@ -134,12 +134,15 @@
 
 <script>
 import router from "@system.router"
+import storage from "@system.storage"
 import { getExpress } from "../../common/services"
 import { getThemeSync, setTheme } from "../../common/theme"
 
 function pad(value) {
   return value < 10 ? "0" + value : "" + value
 }
+
+var SAVED_LIST_KEY = "infoExpressSavedList"
 
 export default {
   private: {
@@ -162,7 +165,11 @@ export default {
       subtitle: "UApiPro-快递查询",
       status: "",
       details: []
-    }
+    },
+    // 输入防抖缓冲区（不参与视图渲染）
+    _inputBuffer: "",
+    _inputTimer: null,
+    _activeInput: "tracking"
   },
 
   onInit() {
@@ -175,8 +182,6 @@ export default {
 
   onShow() {
     this.updateClock()
-    // 订阅物理按键导航
-    
   },
 
   onDestroy() {
@@ -190,10 +195,12 @@ export default {
   },
 
   toggleTheme() {
+    var t = Date.now()
     this.isDark = !this.isDark
     this.themeButtonText = this.isDark ? "浅色模式" : "深色模式"
     this.modeLabel = this.isDark ? "深色" : "浅色"
     setTheme(this.isDark)
+    console.log("PERF-主题切换: " + (Date.now() - t) + "ms")
   },
 
   goHome() {
@@ -201,7 +208,7 @@ export default {
   },
 
   goNews() {
-    router.back()
+    router.push({ uri: "pages/news"})
   },
 
   goWeather() {
@@ -222,37 +229,73 @@ export default {
   },
 
   onKeyTap(key) {
-    // 判断当前输入目标（通过焦点判断，简化处理：如果手机号输入框显示且键盘打开，则输入到手机号）
+    var self = this
     var isPhoneInput = this.showPhoneInput && this.showKeyboard
 
-    if (key === "DEL") {
-      if (isPhoneInput) {
-        if (this.phone.length > 0) {
-          this.phone = this.phone.substring(0, this.phone.length - 1)
-        }
-      } else {
-        if (this.trackingNo.length > 0) {
-          this.trackingNo = this.trackingNo.substring(0, this.trackingNo.length - 1)
-        }
-      }
-    } else if (key === "CLR") {
+    // OK/DEL/CLR 立即响应
+    if (key === "OK") {
+      this._flushInput()
+      this.showKeyboard = false
+      return
+    }
+    if (key === "CLR") {
+      this._cancelFlush()
       if (isPhoneInput) {
         this.phone = ""
       } else {
         this.trackingNo = ""
       }
-    } else if (key === "OK") {
-      this.showKeyboard = false
-    } else {
-      // 手机号只允许输入数字，且最多4位
+      return
+    }
+    if (key === "DEL") {
+      this._cancelFlush()
       if (isPhoneInput) {
-        if (/^\d$/.test(key) && this.phone.length < 4) {
-          this.phone += key
+        var phoneVal = this.phone || ""
+        if (phoneVal.length > 0) {
+          this.phone = phoneVal.substring(0, phoneVal.length - 1)
         }
       } else {
-        this.trackingNo += key
+        var trackVal = this.trackingNo || ""
+        if (trackVal.length > 0) {
+          this.trackingNo = trackVal.substring(0, trackVal.length - 1)
+        }
       }
+      return
     }
+
+    // 普通字符：累积到缓冲区，防抖更新
+    if (isPhoneInput) {
+      if (!/^\d$/.test(key) || (this.phone || "").length >= 4) return
+    }
+    this._inputBuffer = (this._inputBuffer || "") + key
+    this._activeInput = isPhoneInput ? "phone" : "tracking"
+
+    if (this._inputTimer) return
+    this._inputTimer = setTimeout(function () {
+      self._flushInput()
+    }, 50)
+  },
+
+  _flushInput() {
+    if (!this._inputBuffer) {
+      this._inputTimer = null
+      return
+    }
+    if (this._activeInput === "phone") {
+      this.phone = (this.phone || "") + this._inputBuffer
+    } else {
+      this.trackingNo = (this.trackingNo || "") + this._inputBuffer
+    }
+    this._inputBuffer = ""
+    this._inputTimer = null
+  },
+
+  _cancelFlush() {
+    if (this._inputTimer) {
+      clearTimeout(this._inputTimer)
+      this._inputTimer = null
+    }
+    this._inputBuffer = ""
   },
 
   queryExpress() {
@@ -274,12 +317,15 @@ export default {
 
     var self = this
     var phone = this.phone ? this.phone.trim() : ""
+    var t = Date.now()
     getExpress(trackingNo, phone).then(function (info) {
+      console.log("PERF-快递API: " + (Date.now() - t) + "ms")
       self.expressInfo = info
       self.expressLoading = false
       self.showPhoneInput = false
       self.saveToList(trackingNo)
     }).catch(function (err) {
+      console.log("PERF-快递API: " + (Date.now() - t) + "ms")
       self.expressLoading = false
       var errMsg = err.message || ""
       // 检测是否需要手机号（顺丰等快递公司）
@@ -304,7 +350,30 @@ export default {
   },
 
   loadSavedList() {
-    this.savedList = []
+    var self = this
+    storage.get({
+      key: SAVED_LIST_KEY,
+      success: function (data) {
+        try {
+          var list = JSON.parse(data)
+          if (Array.isArray(list)) {
+            self.savedList = list
+          }
+        } catch (e) {
+          self.savedList = []
+        }
+      },
+      fail: function () {
+        self.savedList = []
+      }
+    })
+  },
+
+  _persistSavedList() {
+    storage.set({
+      key: SAVED_LIST_KEY,
+      value: JSON.stringify(this.savedList)
+    })
   },
 
   saveToList(trackingNo) {
@@ -313,11 +382,13 @@ export default {
     list.unshift(trackingNo)
     if (list.length > 10) list = list.slice(0, 10)
     this.savedList = list
+    this._persistSavedList()
   },
 
   removeSaved(index) {
     var list = this.savedList.filter(function (_, i) { return i !== index })
     this.savedList = list
+    this._persistSavedList()
   },
 
   loadSaved(item) {

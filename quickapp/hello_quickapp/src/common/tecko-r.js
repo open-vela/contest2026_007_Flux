@@ -544,116 +544,7 @@ function kadane(arr) {
 // ===== 评分表打印 =====
 
 function logScoreTable(ps, bscScores) {
-  // 表头
-  console.log("\n╔══════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗")
-  console.log("║                                    Tecko-R 评分表                                                                ║")
-  console.log("╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝")
-
-  // ===== Part 1: BSC 7 个子模块评分 =====
-  console.log("\n┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐")
-  console.log("│  [1] BSC 基础评分 (7 个子模块)                                                                                    │")
-  console.log("├──────┬──────────────────────────────────────────────────────────────────────────────────────────────────────────┤")
-  console.log("│ 段落 │  ①中文比例  ②文本长度  ③句末标点  ④实体特征  ⑤动作词   ⑥引导词/数字  ⑦特殊符号  │ BSC合计 │")
-  console.log("├──────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────┤")
-
-  for (var i = 0; i < ps.length; i++) {
-    var text = ps[i].text.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
-    var preview = text.length > 12 ? text.substring(0, 12) + "…" : text
-    // 补齐到12字符
-    while (preview.length < 12) preview += " "
-
-    // 计算各维度分数
-    var cleanText = ps[i].text.replace(/<[^>]+>/g, "")
-    var cleanLen = cleanText.length
-
-    // ① 中文比例
-    var han = 0
-    for (var hi = 0; hi < cleanLen; hi++) { if (cleanText.charCodeAt(hi) >= 0x4e00 && cleanText.charCodeAt(hi) <= 0x9fa5) han++ }
-    var hanRatio = (han * INT_SCALE) / (cleanLen + 1)
-    var d1 = hanRatio > 800 ? 200 : hanRatio > 600 ? 150 : hanRatio > 400 ? 50 : hanRatio > 200 ? -50 : -150
-
-    // ② 文本长度
-    var d2 = cleanLen < 10 ? -100 : cleanLen < 30 ? -30 : cleanLen < 80 ? 50 : cleanLen < 200 ? 150 : cleanLen < 500 ? 100 : 30
-
-    // ③ 句末标点
-    var lastChar = ""
-    for (var lj = cleanLen - 1; lj >= 0; lj--) { var ch = cleanText.charAt(lj); if (ch !== " " && ch !== "\n" && ch !== "\r" && ch !== "\t") { lastChar = ch; break } }
-    var d3 = (lastChar === "。" || lastChar === "！" || lastChar === "？" || lastChar === "”" || lastChar === "』") ? 200
-      : (lastChar === "；" || lastChar === "，" || lastChar === "、") ? 50
-      : (lastChar === "）" || lastChar === ")") ? 80 : -50
-
-    // ④ 实体特征
-    var entityCount = 0
-    for (var ei = 0; ei < ENTITY_WORDS.length; ei++) { if (cleanText.indexOf(ENTITY_WORDS[ei]) !== -1) entityCount++ }
-    var d4 = entityCount >= 3 ? 150 : entityCount >= 2 ? 100 : entityCount >= 1 ? 50 : 0
-
-    // ⑤ 动作词
-    var actionCount = 0
-    for (var ai = 0; ai < ACTION_WORDS.length; ai++) { if (cleanText.indexOf(ACTION_WORDS[ai]) !== -1) actionCount++ }
-    var d5 = actionCount >= 3 ? 100 : actionCount >= 2 ? 70 : actionCount >= 1 ? 40 : 0
-
-    // ⑥ 引导词/数字
-    var guideCount = 0
-    for (var gi = 0; gi < GUIDE_WORDS.length; gi++) { if (cleanText.indexOf(GUIDE_WORDS[gi]) !== -1) guideCount++ }
-    var guidePenalty = guideCount >= 4 ? -120 : guideCount >= 2 ? -60 : guideCount >= 1 ? -20 : 0
-    var digitCount = 0
-    for (var di = 0; di < cleanLen; di++) { if (cleanText.charCodeAt(di) >= 48 && cleanText.charCodeAt(di) <= 57) digitCount++ }
-    var digitRatio = (digitCount * INT_SCALE) / (cleanLen + 1)
-    var digitBonus = digitRatio > 300 ? -80 : (digitRatio > 100 && digitRatio <= 300) ? 50 : 0
-    var d6 = guidePenalty + digitBonus
-
-    // ⑦ 特殊符号
-    var specialCount = 0
-    var specialChars = "★●■□▲△○◇◆▼▽"
-    for (var si = 0; si < cleanLen; si++) { if (specialChars.indexOf(cleanText.charAt(si)) !== -1) specialCount++ }
-    var d7 = specialCount >= 3 ? -80 : 0
-
-    var bscTotal = d1 + d2 + d3 + d4 + d5 + d6 + d7
-
-    var fmt = function (v) { return (v >= 0 ? "+" : "") + v }
-    var pad4 = function (v) {
-      var s = fmt(v)
-      while (s.length < 4) s = " " + s
-      return s
-    }
-
-    console.log("│ " + preview + " │  " + pad4(d1) + "       " + pad4(d2) + "       " + pad4(d3) + "       " + pad4(d4) + "       " + pad4(d5) + "       " + pad4(d6) + "         " + pad4(d7) + "   │  " + pad4(bscTotal) + "  │")
-  }
-  console.log("└──────┴──────────────────────────────────────────────────────────────────────────────────────────────────────────┘")
-
-  // ===== Part 2: Pipeline 模块输出（去掉了 smooth 和 Kadane） =====
-  console.log("\n┌───────────────────────────────────────────────────────────────────────────────────────────┐")
-  console.log("│  [2] Pipeline 模块输出 (extractP → structFilter → BSC → LQB → adTTL → Fusion → SPIM)     │")
-  console.log("├──────┬─────────────────────────────────────────────────────────────────────────────────── ┤")
-  console.log("│ 段落 │  extractP  structFilter  BSC     LQB     adTTL   Fusion  SPIM   │")
-  console.log("├──────┼─────────────────────────────────────────────────────────────────────────────────── ┤")
-
-  for (var pi = 0; pi < ps.length; pi++) {
-    var txt = ps[pi].text.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
-    var pv = txt.length > 12 ? txt.substring(0, 12) + "…" : txt
-    while (pv.length < 12) pv += " "
-
-    var extractPStatus = "✓"
-    var structFilterStatus = ps[pi].isAd ? "AD" : "—"
-    var bscVal = pad42(bscScores[pi])
-    var lqbVal = pad42(-Math.min(ps[pi].lowScoreStreak * 50, 150))
-    var adTTLVal = pad42(ps[pi].adTTL > 0 ? -Math.floor(ps[pi].adTTL * 25) : 0)
-    var fusionVal = pad42(ps[pi].total)
-    var spimVal = ps[pi].spimStatus || "—"
-
-    console.log("│ " + pv + " │  " + extractPStatus + "        " + structFilterStatus + "          " + bscVal + "   " + lqbVal + "   " + adTTLVal + "   " + fusionVal + "   " + spimVal + "   │")
-  }
-  console.log("└──────┴─────────────────────────────────────────────────────────────────────────────────── ┘")
-
-  // 最终保留的段落
-  console.log("\n  最终保留段落 (total > 0):")
-  for (var ri = 0; ri < ps.length; ri++) {
-    if (ps[ri].total > 0) {
-      var rt = ps[ri].text.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
-      var rp = rt.length > 40 ? rt.substring(0, 40) + "…" : rt
-      console.log("    [" + ri + "] total=" + ps[ri].total + " → " + rp)
-    }
-  }
+  // 日志已清理，用于性能测试
 }
 
 // 辅助：格式化到4位
@@ -672,16 +563,20 @@ function teckoR(html) {
   if (ps.length === 0) return { text: "", ps: [], bscScores: [] }
 
   // Step 3: BSC 基础评分
+  var t1 = Date.now()
   var bscScores = []
   for (var i = 0; i < ps.length; i++) {
     bscScores[i] = baseScore(ps[i])
   }
+  console.log("PERF-BSC评分: " + (Date.now() - t1) + "ms")
 
   // Step 2: 结构过滤（标记广告）
   structFilter(ps)
 
   // Step 3.5: LQB 连续低质量检测
+  var t2 = Date.now()
   lqb(ps, bscScores)
+  console.log("PERF-LQB: " + (Date.now() - t2) + "ms")
 
   // Step 3.6: adTTL 广告衰减传播
   adTTL(ps)
