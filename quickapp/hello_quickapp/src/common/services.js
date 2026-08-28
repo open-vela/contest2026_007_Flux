@@ -174,7 +174,7 @@ function normalizeNews(item) {
   var source = extractSourceName(item.url) || item.author || "未知来源"
   var title = stripHtmlAndFilter(item.title) || "未命名新闻"
   var desc = cleanDescription(item.description) || "暂无摘要"
-  console.log("PERF-新闻解析: " + (Date.now() - t) + "ms")
+
   return {
     id: item.id || "",
     title: title,

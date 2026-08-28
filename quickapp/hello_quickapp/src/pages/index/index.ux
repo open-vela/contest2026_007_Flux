@@ -178,7 +178,6 @@ export default {
       // 天气加载完后，加载新闻
       self.loadNews()
     }).catch(function () {
-      console.log("PERF-天气API: " + (Date.now() - t) + "ms")
       self.weatherSummary = "天气获取失败"
       // 失败也要继续加载新闻
       self.loadNews()

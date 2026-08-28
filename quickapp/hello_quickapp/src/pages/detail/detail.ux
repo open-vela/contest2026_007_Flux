@@ -128,8 +128,6 @@ export default {
         // 使用 Tecko-R 解析 HTML
         var t = Date.now()
         var result = parseHTML(data)
-        console.log("PERF-Tecko解析: " + (Date.now() - t) + "ms")
-
         // 打印评分表
         if (result.ps && result.ps.length > 0) {
           logScoreTable(result.ps, result.bscScores)
