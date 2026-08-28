@@ -115,7 +115,6 @@ export default {
     this.themeButtonText = this.isDark ? "浅色模式" : "深色模式"
     this.modeLabel = this.isDark ? "深色" : "浅色"
     setTheme(this.isDark)
-    console.log("PERF-主题切换: " + (Date.now() - t) + "ms")
   },
 
   goHome() {
@@ -159,7 +158,6 @@ export default {
       categories: ["politics"],
       pageSize: 20
     }).then(function (list) {
-      console.log("PERF-新闻列表加载: " + (Date.now() - t) + "ms")
       self.newsCount = list.length
       self.newsList = list.length > 1 ? list.slice(1) : []
       self.leadNews = list.length ? list[0] : emptyNews()
@@ -167,7 +165,6 @@ export default {
       self.hasError = false
       self.showNewsContent = true
     }).catch(function (err) {
-      console.log("PERF-新闻列表加载: " + (Date.now() - t) + "ms")
       self.loading = false
       self.hasError = true
       self.errorText = "新闻获取失败"

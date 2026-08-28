@@ -568,7 +568,6 @@ function teckoR(html) {
   for (var i = 0; i < ps.length; i++) {
     bscScores[i] = baseScore(ps[i])
   }
-  console.log("PERF-BSC评分: " + (Date.now() - t1) + "ms")
 
   // Step 2: 结构过滤（标记广告）
   structFilter(ps)
@@ -576,7 +575,6 @@ function teckoR(html) {
   // Step 3.5: LQB 连续低质量检测
   var t2 = Date.now()
   lqb(ps, bscScores)
-  console.log("PERF-LQB: " + (Date.now() - t2) + "ms")
 
   // Step 3.6: adTTL 广告衰减传播
   adTTL(ps)

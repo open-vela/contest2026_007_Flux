@@ -200,7 +200,6 @@ export default {
     this.themeButtonText = this.isDark ? "浅色模式" : "深色模式"
     this.modeLabel = this.isDark ? "深色" : "浅色"
     setTheme(this.isDark)
-    console.log("PERF-主题切换: " + (Date.now() - t) + "ms")
   },
 
   goHome() {
@@ -319,13 +318,11 @@ export default {
     var phone = this.phone ? this.phone.trim() : ""
     var t = Date.now()
     getExpress(trackingNo, phone).then(function (info) {
-      console.log("PERF-快递API: " + (Date.now() - t) + "ms")
       self.expressInfo = info
       self.expressLoading = false
       self.showPhoneInput = false
       self.saveToList(trackingNo)
     }).catch(function (err) {
-      console.log("PERF-快递API: " + (Date.now() - t) + "ms")
       self.expressLoading = false
       var errMsg = err.message || ""
       // 检测是否需要手机号（顺丰等快递公司）
