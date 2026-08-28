@@ -94,6 +94,7 @@ export default {
     this.updateDate()
     // 串行调用，避免并发 fetch 导致框架崩溃
     this.loadWeather()
+    console.log("PERF-首页加载: " + (Date.now() - this._t_pageLoad) + "ms")
   },
 
   onDestroy() {
@@ -116,6 +117,7 @@ export default {
     this.themeButtonText = this.isDark ? "浅色模式" : "深色模式"
     this.modeLabel = this.isDark ? "深色" : "浅色"
     setTheme(this.isDark)
+    console.log("PERF-主题切换: " + (Date.now() - t) + "ms")
   },
 
   goNews() {
@@ -171,6 +173,7 @@ export default {
     self.weatherSummary = "定位中..."
     var t = Date.now()
     getWeather(city).then(function (info) {
+      console.log("PERF-天气API: " + (Date.now() - t) + "ms")
       self.weatherSummary = info.title + " " + info.message + " " + info.subtitle
       // 天气加载完后，加载新闻
       self.loadNews()
@@ -185,6 +188,7 @@ export default {
     var self = this
     var t = Date.now()
     getLatestNews({ categories: ["politics"], pageSize: 20 }).then(function (list) {
+      console.log("PERF-新闻API: " + (Date.now() - t) + "ms")
       if (list && list.length) {
         self.newsTitle = list[0].title
         self.newsSource = list[0].source + " · " + list[0].published
@@ -194,6 +198,7 @@ export default {
       // 新闻加载完后，加载历史
       self.loadHistory()
     }).catch(function () {
+      console.log("PERF-新闻API: " + (Date.now() - t) + "ms")
       self.newsTitle = "新闻获取失败"
       // 失败也要继续加载历史
       self.loadHistory()
@@ -211,6 +216,7 @@ export default {
     var self = this
     var t = Date.now()
     getTodayInHistory().then(function (list) {
+      console.log("PERF-历史API: " + (Date.now() - t) + "ms")
       if (list && list.length) {
         var formatted = list.map(function (item) {
           return { title: item.title, year: item.year, yearLabel: self.formatHistoryYear(item.year), desc: item.desc, link: item.link }
@@ -218,6 +224,7 @@ export default {
         self.historyList = formatted
       }
     }).catch(function () {
+      console.log("PERF-历史API: " + (Date.now() - t) + "ms")
       // 历史加载失败，静默处理
     })
   }

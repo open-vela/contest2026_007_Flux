@@ -80,6 +80,7 @@ function stripHtmlAndFilter(text) {
   cleanText = cleanText.replace(/<[^>]+>/g, " ")
   var lines = cleanText.split(/[\r\n]+/)
   var filteredLines = lines.filter(function (line) { return line.indexOf("⬅️") === -1 })
+  console.log("PERF-HTML解码: " + (Date.now() - t) + "ms")
   return filteredLines.join("\n").trim()
 }
 
