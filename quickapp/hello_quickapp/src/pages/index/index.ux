@@ -92,7 +92,6 @@ export default {
   onShow() {
     this.updateClock()
     this.updateDate()
-    // 串行调用，避免并发 fetch 导致框架崩溃
     this.loadWeather()
     console.log("PERF-首页加载: " + (Date.now() - this._t_pageLoad) + "ms")
   },
